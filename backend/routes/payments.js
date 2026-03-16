@@ -22,13 +22,7 @@ router.get("/", (req, res) => {
 
 // ADD PAYMENT
 router.post("/", (req, res) => {
-  const {
-    SalesID,
-    AmountPaid,
-    PaymentMethod,
-    ReferenceNumber,
-    CashReceived
-  } = req.body;
+  const { SalesID, AmountPaid, PaymentMethod, ReferenceNumber, CashReceived } = req.body;
 
   if (!SalesID || !AmountPaid || !PaymentMethod) {
     return res.status(400).json({ error: "Required fields are missing" });
@@ -39,15 +33,14 @@ router.post("/", (req, res) => {
   }
 
   let changeAmount = 0;
-  let cashValue = CashReceived || 0;
-  let refValue = ReferenceNumber || null;
+  const cashValue = CashReceived ? Number(CashReceived) : 0;
+  const paidValue = Number(AmountPaid);
 
   if (PaymentMethod === "Cash") {
-    changeAmount = Number(cashValue) - Number(AmountPaid);
-
-    if (changeAmount < 0) {
+    if (cashValue < paidValue) {
       return res.status(400).json({ error: "Cash received is less than amount paid" });
     }
+    changeAmount = cashValue - paidValue;
   }
 
   const sql = `
@@ -58,7 +51,7 @@ router.post("/", (req, res) => {
 
   db.query(
     sql,
-    [SalesID, AmountPaid, PaymentMethod, refValue, cashValue, changeAmount],
+    [SalesID, paidValue, PaymentMethod, ReferenceNumber || null, cashValue || null, changeAmount],
     (err) => {
       if (err) {
         console.log("POST payment error:", err);

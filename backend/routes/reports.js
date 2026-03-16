@@ -36,8 +36,8 @@ router.get("/summary", (req, res) => {
 router.get("/sales/:period", (req, res) => {
   const { period } = req.params;
 
-  let groupSql = "";
   let labelSql = "";
+  let groupSql = "";
 
   if (period === "daily") {
     labelSql = "DATE(s.SalesDate)";
@@ -79,8 +79,8 @@ router.get("/sales/:period", (req, res) => {
 router.get("/payments/:period", (req, res) => {
   const { period } = req.params;
 
-  let groupSql = "";
   let labelSql = "";
+  let groupSql = "";
 
   if (period === "daily") {
     labelSql = "DATE(PaymentDate)";
@@ -121,8 +121,8 @@ router.get("/payments/:period", (req, res) => {
 router.get("/expenses/:period", (req, res) => {
   const { period } = req.params;
 
-  let groupSql = "";
   let labelSql = "";
+  let groupSql = "";
 
   if (period === "daily") {
     labelSql = "DATE(ExpenseDate)";
@@ -163,8 +163,8 @@ router.get("/expenses/:period", (req, res) => {
 router.get("/losses/:period", (req, res) => {
   const { period } = req.params;
 
-  let groupSql = "";
   let labelSql = "";
+  let groupSql = "";
 
   if (period === "daily") {
     labelSql = "DATE(DateRecorded)";

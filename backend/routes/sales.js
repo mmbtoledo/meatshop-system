@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 
-// GET ALL SALES WITH DETAILS
+// GET ALL SALES
 router.get("/", (req, res) => {
   const sql = `
     SELECT
@@ -38,7 +38,6 @@ router.post("/", (req, res) => {
     return res.status(400).json({ error: "At least one sale item is required" });
   }
 
-  // stock check first
   const checkStockPromises = items.map((item) => {
     return new Promise((resolve, reject) => {
       const stockSql = `
@@ -49,16 +48,12 @@ router.post("/", (req, res) => {
 
       db.query(stockSql, [item.ProductID], (err, result) => {
         if (err) return reject(err);
-        if (result.length === 0) {
-          return reject(new Error(`Product not found: ${item.ProductID}`));
-        }
+        if (result.length === 0) return reject(new Error(`Product not found: ${item.ProductID}`));
 
         const product = result[0];
 
         if (Number(item.Quantity) > Number(product.StockQty)) {
-          return reject(
-            new Error(`Insufficient stock for ${product.ProductName}`)
-          );
+          return reject(new Error(`Insufficient stock for ${product.ProductName}`));
         }
 
         resolve(product);

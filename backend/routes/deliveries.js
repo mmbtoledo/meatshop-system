@@ -2,16 +2,14 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 
-// GET ALL DELIVERIES WITH DETAILS
+// GET ALL DELIVERIES
 router.get("/", (req, res) => {
   const sql = `
     SELECT
       d.DeliveryID,
       d.DeliveryDate,
-      d.SupplierID,
       s.SupplierName,
       dd.DeliveryDetailID,
-      dd.ProductID,
       p.ProductName,
       dd.Quantity,
       dd.CostPrice,
