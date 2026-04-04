@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { motion } from "framer-motion";
 import {
   ResponsiveContainer,
   LineChart,
   Line,
-  BarChart,
-  Bar,
   CartesianGrid,
   XAxis,
   YAxis,
@@ -26,7 +25,7 @@ function Reports() {
   }, [period]);
 
   const fetchAllReports = async (selectedPeriod) => {
-    setMessage("");
+    let errors = [];
 
     try {
       const salesRes = await axios.get(`http://localhost:5000/api/reports/sales/${selectedPeriod}`);
@@ -34,7 +33,7 @@ function Reports() {
     } catch (err) {
       console.error("Sales report error:", err);
       setSalesData([]);
-      setMessage((prev) => prev + " Sales report failed.");
+      errors.push("Sales report failed.");
     }
 
     try {
@@ -43,7 +42,7 @@ function Reports() {
     } catch (err) {
       console.error("Payments report error:", err);
       setPaymentsData([]);
-      setMessage((prev) => prev + " Payments report failed.");
+      errors.push("Payments report failed.");
     }
 
     try {
@@ -52,7 +51,7 @@ function Reports() {
     } catch (err) {
       console.error("Expenses report error:", err);
       setExpensesData([]);
-      setMessage((prev) => prev + " Expenses report failed.");
+      errors.push("Expenses report failed.");
     }
 
     try {
@@ -61,40 +60,106 @@ function Reports() {
     } catch (err) {
       console.error("Losses report error:", err);
       setLossesData([]);
-      setMessage((prev) => prev + " Losses report failed.");
+      errors.push("Losses report failed.");
     }
 
     try {
-      const topProductsRes = await axios.get(`http://localhost:5000/api/reports/top-products`);
+      const topProductsRes = await axios.get("http://localhost:5000/api/reports/top-products");
       setTopProducts(topProductsRes.data || []);
     } catch (err) {
       console.error("Top products report error:", err);
       setTopProducts([]);
-      setMessage((prev) => prev + " Top products report failed.");
+      errors.push("Top products report failed.");
     }
+
+    setMessage(errors.join(" "));
+  };
+
+  const pageStyle = {
+    padding: "30px",
+    background: "linear-gradient(135deg, #f8f4f1 0%, #f1ebe6 100%)",
+    minHeight: "100vh"
+  };
+
+  const titleStyle = {
+    fontSize: "48px",
+    color: "#4a251b",
+    marginBottom: "20px",
+    fontWeight: "800"
   };
 
   const boxStyle = {
-    backgroundColor: "white",
-    padding: "20px",
-    borderRadius: "18px",
-    boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
-    marginBottom: "20px"
+    background: "linear-gradient(145deg, #fffdfb, #f7efe8)",
+    padding: "22px",
+    borderRadius: "22px",
+    boxShadow: "0 10px 30px rgba(74, 37, 27, 0.10)",
+    marginBottom: "22px",
+    border: "1px solid rgba(196, 154, 108, 0.18)"
   };
 
-  return (
-    <div style={{ padding: "30px" }}>
-      <h1 style={{ fontSize: "40px", color: "#4a251b", marginBottom: "20px" }}>Reports</h1>
+  const renderLineGraph = (title, data, dataKey, strokeColor) => (
+    <motion.div
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+      style={boxStyle}
+    >
+      <h2 style={{ color: "#4a251b", marginBottom: "14px" }}>{title}</h2>
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e7d7ca" />
+          <XAxis dataKey="Label" stroke="#6d4c41" />
+          <YAxis stroke="#6d4c41" />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "#fffaf5",
+              borderRadius: "12px",
+              border: "1px solid #d7b899"
+            }}
+          />
+          <Line
+            type="monotone"
+            dataKey={dataKey}
+            stroke={strokeColor}
+            strokeWidth={4}
+            dot={{ r: 5 }}
+            activeDot={{ r: 7 }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </motion.div>
+  );
 
-      <div style={boxStyle}>
-        <label style={{ fontWeight: "600", marginRight: "10px" }}>View Records By:</label>
+  return (
+    <div style={pageStyle}>
+      <motion.h1
+        initial={{ opacity: 0, y: -16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45 }}
+        style={titleStyle}
+      >
+        Reports
+      </motion.h1>
+
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        style={boxStyle}
+      >
+        <label style={{ fontWeight: "700", marginRight: "10px", color: "#4a251b" }}>
+          View Records By:
+        </label>
         <select
           value={period}
           onChange={(e) => setPeriod(e.target.value)}
           style={{
             padding: "10px 14px",
-            borderRadius: "8px",
-            border: "1px solid #ccc"
+            borderRadius: "10px",
+            border: "1px solid #ccb39a",
+            background: "#fffaf5",
+            fontWeight: "600",
+            color: "#4a251b"
           }}
         >
           <option value="daily">Daily</option>
@@ -104,76 +169,47 @@ function Reports() {
         </select>
 
         {message && (
-          <p style={{ color: "red", marginTop: "12px", fontWeight: "600" }}>
+          <p style={{ color: "#d32f2f", marginTop: "12px", fontWeight: "700" }}>
             {message}
           </p>
         )}
-      </div>
+      </motion.div>
 
-      <div style={boxStyle}>
-        <h2>Sales Records ({period})</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={salesData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="Label" />
-            <YAxis />
-            <Tooltip />
-            <Line type="monotone" dataKey="TotalSales" stroke="#8c3f2f" strokeWidth={3} />
+      {renderLineGraph(`Sales Records (${period})`, salesData, "TotalSales", "#8c3f2f")}
+      {renderLineGraph(`Payments Records (${period})`, paymentsData, "TotalPayments", "#5c2d1f")}
+      {renderLineGraph(`Expenses Records (${period})`, expensesData, "TotalExpenses", "#b23a2a")}
+      {renderLineGraph(`Losses Records (${period})`, lossesData, "TotalLosses", "#6d4c41")}
+
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        style={boxStyle}
+      >
+        <h2 style={{ color: "#4a251b", marginBottom: "14px" }}>Most Sold Products</h2>
+        <ResponsiveContainer width="100%" height={320}>
+          <LineChart data={topProducts}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e7d7ca" />
+            <XAxis dataKey="ProductName" stroke="#6d4c41" />
+            <YAxis stroke="#6d4c41" />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "#fffaf5",
+                borderRadius: "12px",
+                border: "1px solid #d7b899"
+              }}
+            />
+            <Line
+              type="monotone"
+              dataKey="TotalSold"
+              stroke="#7a3525"
+              strokeWidth={4}
+              dot={{ r: 5 }}
+              activeDot={{ r: 7 }}
+            />
           </LineChart>
         </ResponsiveContainer>
-      </div>
-
-      <div style={boxStyle}>
-        <h2>Payments Records ({period})</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={paymentsData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="Label" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="TotalPayments" fill="#5c2d1f" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div style={boxStyle}>
-        <h2>Expenses Records ({period})</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={expensesData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="Label" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="TotalExpenses" fill="#c0392b" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div style={boxStyle}>
-        <h2>Losses Records ({period})</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={lossesData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="Label" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="TotalLosses" fill="#7f8c8d" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div style={boxStyle}>
-        <h2>Most Sold Products</h2>
-        <ResponsiveContainer width="100%" height={320}>
-          <BarChart data={topProducts}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="ProductName" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="TotalSold" fill="#8c3f2f" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      </motion.div>
     </div>
   );
 }

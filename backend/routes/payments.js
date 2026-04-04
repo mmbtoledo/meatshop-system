@@ -2,65 +2,133 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 
-// GET PAYMENTS
+// GET all payments
 router.get("/", (req, res) => {
   const sql = `
-    SELECT *
+    SELECT 
+      PaymentID,
+      SalesID,
+      PaymentDate,
+      AmountPaid,
+      PaymentMethod,
+      ReferenceNumber,
+      CashReceived,
+      ChangeAmount
     FROM payments
     ORDER BY PaymentID DESC
   `;
 
-  db.query(sql, (err, result) => {
+  db.query(sql, (err, results) => {
     if (err) {
-      console.log("GET payments error:", err);
-      return res.status(500).json({ error: "Failed to fetch payments" });
+      console.error("Fetch payments error:", err);
+      return res.status(500).json({ message: "Database error." });
     }
 
-    res.json(result);
+    res.json(results);
   });
 });
 
-// ADD PAYMENT
-router.post("/", (req, res) => {
-  const { SalesID, AmountPaid, PaymentMethod, ReferenceNumber, CashReceived } = req.body;
+// GET unpaid sales only
+router.get("/unpaid-sales", (req, res) => {
+  const sql = `
+    SELECT 
+      s.SalesID,
+      s.SalesDate,
+      COALESCE(SUM(sd.Subtotal), 0) AS TotalAmount
+    FROM sales s
+    LEFT JOIN sales_details sd ON s.SalesID = sd.SalesID
+    LEFT JOIN payments p ON s.SalesID = p.SalesID
+    WHERE p.SalesID IS NULL
+    GROUP BY s.SalesID, s.SalesDate
+    ORDER BY s.SalesID DESC
+  `;
 
-  if (!SalesID || !AmountPaid || !PaymentMethod) {
-    return res.status(400).json({ error: "Required fields are missing" });
-  }
-
-  if (PaymentMethod === "GCash" && !ReferenceNumber) {
-    return res.status(400).json({ error: "Reference number is required for GCash" });
-  }
-
-  let changeAmount = 0;
-  const cashValue = CashReceived ? Number(CashReceived) : 0;
-  const paidValue = Number(AmountPaid);
-
-  if (PaymentMethod === "Cash") {
-    if (cashValue < paidValue) {
-      return res.status(400).json({ error: "Cash received is less than amount paid" });
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Fetch unpaid sales error:", err);
+      return res.status(500).json({ message: "Database error." });
     }
-    changeAmount = cashValue - paidValue;
+
+    res.json(results);
+  });
+});
+
+// ADD payment
+router.post("/", (req, res) => {
+  const {
+    SalesID,
+    PaymentDate,
+    AmountPaid,
+    PaymentMethod,
+    ReferenceNumber,
+    CashReceived,
+    ChangeAmount
+  } = req.body;
+
+  if (!SalesID) {
+    return res.status(400).json({ message: "Sales ID is required." });
+  }
+
+  if (!PaymentDate) {
+    return res.status(400).json({ message: "Payment date is required." });
+  }
+
+  if (AmountPaid === "" || AmountPaid === null || AmountPaid === undefined) {
+    return res.status(400).json({ message: "Amount paid is required." });
+  }
+
+  if (!PaymentMethod) {
+    return res.status(400).json({ message: "Payment method is required." });
   }
 
   const sql = `
     INSERT INTO payments
     (SalesID, PaymentDate, AmountPaid, PaymentMethod, ReferenceNumber, CashReceived, ChangeAmount)
-    VALUES (?, NOW(), ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
 
   db.query(
     sql,
-    [SalesID, paidValue, PaymentMethod, ReferenceNumber || null, cashValue || null, changeAmount],
-    (err) => {
+    [
+      SalesID,
+      PaymentDate,
+      AmountPaid,
+      PaymentMethod,
+      ReferenceNumber || null,
+      CashReceived || null,
+      ChangeAmount || 0
+    ],
+    (err, result) => {
       if (err) {
-        console.log("POST payment error:", err);
-        return res.status(500).json({ error: "Failed to record payment" });
+        if (err.code === "ER_DUP_ENTRY") {
+          return res.status(400).json({
+            message: "This sale already has a payment."
+          });
+        }
+
+        console.error("Insert payment error:", err);
+        return res.status(500).json({ message: "Database error." });
       }
 
-      res.json({ message: "Payment recorded successfully" });
+      res.status(201).json({ message: "Payment saved successfully." });
     }
   );
+});
+
+// DELETE payment
+router.delete("/:id", (req, res) => {
+  const { id } = req.params;
+
+  const sql = "DELETE FROM payments WHERE PaymentID = ?";
+
+  db.query(sql, [id], (err, result) => {
+    if (err) {
+      console.error("Delete payment error:", err);
+      return res.status(500).json({ message: "Database error." });
+    }
+
+    res.json({ message: "Payment deleted successfully." });
+  });
 });
 
 module.exports = router;

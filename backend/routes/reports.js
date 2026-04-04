@@ -2,245 +2,317 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 
-// SUMMARY
+// Helper map for grouping by period
+const groupMap = {
+  daily: {
+    sales: "DATE(s.SalesDate)",
+    payments: "DATE(p.PaymentDate)",
+    expenses: "DATE(e.ExpenseDate)",
+    losses: "DATE(l.DateRecorded)"
+  },
+  weekly: {
+    sales: "YEARWEEK(s.SalesDate, 1)",
+    payments: "YEARWEEK(p.PaymentDate, 1)",
+    expenses: "YEARWEEK(e.ExpenseDate, 1)",
+    losses: "YEARWEEK(l.DateRecorded, 1)"
+  },
+  monthly: {
+    sales: "DATE_FORMAT(s.SalesDate, '%Y-%m')",
+    payments: "DATE_FORMAT(p.PaymentDate, '%Y-%m')",
+    expenses: "DATE_FORMAT(e.ExpenseDate, '%Y-%m')",
+    losses: "DATE_FORMAT(l.DateRecorded, '%Y-%m')"
+  },
+  yearly: {
+    sales: "YEAR(s.SalesDate)",
+    payments: "YEAR(p.PaymentDate)",
+    expenses: "YEAR(e.ExpenseDate)",
+    losses: "YEAR(l.DateRecorded)"
+  }
+};
+
+// =========================
+// DASHBOARD SUMMARY
+// =========================
 router.get("/summary", (req, res) => {
-  const sql = `
-    SELECT
-      IFNULL((SELECT SUM(Subtotal) FROM sales_details), 0) AS TotalSales,
-      IFNULL((SELECT SUM(AmountPaid) FROM payments), 0) AS TotalPayments,
-      IFNULL((SELECT SUM(Amount) FROM expenses), 0) AS TotalExpenses,
-      IFNULL((SELECT SUM(Quantity) FROM losses), 0) AS TotalLosses,
-      IFNULL((SELECT COUNT(*) FROM products WHERE StockQty <= 5), 0) AS LowStockProducts
+  const summary = {
+    totalSales: 0,
+    totalPayments: 0,
+    totalExpenses: 0,
+    totalLosses: 0,
+    lowStockCount: 0,
+    netProfit: 0
+  };
+
+  const salesSql = `
+    SELECT COALESCE(SUM(Subtotal), 0) AS totalSales
+    FROM sales_details
   `;
 
-  db.query(sql, (err, result) => {
-    if (err) {
-      console.log("Summary report error:", err);
-      return res.status(500).json({ error: "Failed to generate summary report" });
+  const paymentsSql = `
+    SELECT COALESCE(SUM(AmountPaid), 0) AS totalPayments
+    FROM payments
+  `;
+
+  const expensesSql = `
+    SELECT COALESCE(SUM(Amount), 0) AS totalExpenses
+    FROM expenses
+  `;
+
+  const lossesSql = `
+    SELECT COALESCE(SUM(Quantity), 0) AS totalLosses
+    FROM losses
+  `;
+
+  const lowStockSql = `
+    SELECT COUNT(*) AS lowStockCount
+    FROM products
+    WHERE StockQty <= 10
+  `;
+
+  db.query(salesSql, (err1, salesResult) => {
+    if (err1) {
+      console.error("Dashboard sales summary error:", err1);
+      return res.status(500).json({ message: "Failed to load dashboard summary." });
     }
 
-    const data = result[0] || {};
+    summary.totalSales = Number(salesResult[0]?.totalSales || 0);
 
-    res.json({
-      TotalSales: Number(data.TotalSales || 0),
-      TotalPayments: Number(data.TotalPayments || 0),
-      TotalExpenses: Number(data.TotalExpenses || 0),
-      TotalLosses: Number(data.TotalLosses || 0),
-      LowStockProducts: Number(data.LowStockProducts || 0),
-      NetProfit: Number(data.TotalSales || 0) - Number(data.TotalExpenses || 0)
+    db.query(paymentsSql, (err2, paymentsResult) => {
+      if (err2) {
+        console.error("Dashboard payments summary error:", err2);
+        return res.status(500).json({ message: "Failed to load dashboard summary." });
+      }
+
+      summary.totalPayments = Number(paymentsResult[0]?.totalPayments || 0);
+
+      db.query(expensesSql, (err3, expensesResult) => {
+        if (err3) {
+          console.error("Dashboard expenses summary error:", err3);
+          return res.status(500).json({ message: "Failed to load dashboard summary." });
+        }
+
+        summary.totalExpenses = Number(expensesResult[0]?.totalExpenses || 0);
+
+        db.query(lossesSql, (err4, lossesResult) => {
+          if (err4) {
+            console.error("Dashboard losses summary error:", err4);
+            return res.status(500).json({ message: "Failed to load dashboard summary." });
+          }
+
+          summary.totalLosses = Number(lossesResult[0]?.totalLosses || 0);
+          summary.netProfit = summary.totalPayments - summary.totalExpenses;
+
+          db.query(lowStockSql, (err5, lowStockResult) => {
+            if (err5) {
+              console.error("Dashboard low stock summary error:", err5);
+              return res.status(500).json({ message: "Failed to load dashboard summary." });
+            }
+
+            summary.lowStockCount = Number(lowStockResult[0]?.lowStockCount || 0);
+
+            res.json({
+              TotalSales: summary.totalSales,
+              TotalPayments: summary.totalPayments,
+              TotalExpenses: summary.totalExpenses,
+              TotalLosses: summary.totalLosses,
+              LowStockProducts: summary.lowStockCount,
+              NetProfit: summary.netProfit
+            });
+          });
+        });
+      });
     });
   });
 });
 
-// SALES BY PERIOD
+// =========================
+// LOW STOCK PRODUCTS
+// =========================
+router.get("/low-stock", (req, res) => {
+  const sql = `
+    SELECT ProductID, ProductName, StockQty, CurrentPrice
+    FROM products
+    WHERE StockQty <= 10
+    ORDER BY StockQty ASC, ProductName ASC
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Low stock report error:", err);
+      return res.status(500).json({ message: "Low stock report failed." });
+    }
+
+    res.json(results);
+  });
+});
+
+// =========================
+// SALES REPORT
+// =========================
 router.get("/sales/:period", (req, res) => {
   const { period } = req.params;
+  const groupBy = groupMap[period]?.sales;
 
-  let labelSql = "";
-  let groupSql = "";
-
-  if (period === "daily") {
-    labelSql = "DATE(s.SalesDate)";
-    groupSql = "DATE(s.SalesDate)";
-  } else if (period === "weekly") {
-    labelSql = "CONCAT(YEAR(s.SalesDate), '-W', WEEK(s.SalesDate))";
-    groupSql = "YEAR(s.SalesDate), WEEK(s.SalesDate)";
-  } else if (period === "monthly") {
-    labelSql = "DATE_FORMAT(s.SalesDate, '%Y-%m')";
-    groupSql = "DATE_FORMAT(s.SalesDate, '%Y-%m')";
-  } else if (period === "yearly") {
-    labelSql = "YEAR(s.SalesDate)";
-    groupSql = "YEAR(s.SalesDate)";
-  } else {
-    return res.status(400).json({ error: "Invalid period" });
+  if (!groupBy) {
+    return res.status(400).json({ message: "Invalid period." });
   }
 
   const sql = `
     SELECT
-      ${labelSql} AS Label,
-      IFNULL(SUM(sd.Subtotal), 0) AS TotalSales
+      ${groupBy} AS Label,
+      COALESCE(SUM(sd.Subtotal), 0) AS TotalSales
     FROM sales s
-    JOIN sales_details sd ON s.SalesID = sd.SalesID
-    GROUP BY ${groupSql}
-    ORDER BY Label ASC
+    LEFT JOIN sales_details sd ON s.SalesID = sd.SalesID
+    GROUP BY Label
+    ORDER BY Label
   `;
 
-  db.query(sql, (err, result) => {
+  db.query(sql, (err, results) => {
     if (err) {
-      console.log("Sales period report error:", err);
-      return res.status(500).json({ error: "Failed to generate sales report" });
+      console.error("Sales report error:", err);
+      return res.status(500).json({ message: "Sales report failed." });
     }
 
-    res.json(result);
+    res.json(results);
   });
 });
 
-// PAYMENTS BY PERIOD
+// =========================
+// PAYMENTS REPORT
+// =========================
 router.get("/payments/:period", (req, res) => {
   const { period } = req.params;
+  const groupBy = groupMap[period]?.payments;
 
-  let labelSql = "";
-  let groupSql = "";
-
-  if (period === "daily") {
-    labelSql = "DATE(PaymentDate)";
-    groupSql = "DATE(PaymentDate)";
-  } else if (period === "weekly") {
-    labelSql = "CONCAT(YEAR(PaymentDate), '-W', WEEK(PaymentDate))";
-    groupSql = "YEAR(PaymentDate), WEEK(PaymentDate)";
-  } else if (period === "monthly") {
-    labelSql = "DATE_FORMAT(PaymentDate, '%Y-%m')";
-    groupSql = "DATE_FORMAT(PaymentDate, '%Y-%m')";
-  } else if (period === "yearly") {
-    labelSql = "YEAR(PaymentDate)";
-    groupSql = "YEAR(PaymentDate)";
-  } else {
-    return res.status(400).json({ error: "Invalid period" });
+  if (!groupBy) {
+    return res.status(400).json({ message: "Invalid period." });
   }
 
   const sql = `
     SELECT
-      ${labelSql} AS Label,
-      IFNULL(SUM(AmountPaid), 0) AS TotalPayments
-    FROM payments
-    GROUP BY ${groupSql}
-    ORDER BY Label ASC
+      ${groupBy} AS Label,
+      COALESCE(SUM(p.AmountPaid), 0) AS TotalPayments
+    FROM payments p
+    GROUP BY Label
+    ORDER BY Label
   `;
 
-  db.query(sql, (err, result) => {
+  db.query(sql, (err, results) => {
     if (err) {
-      console.log("Payments period report error:", err);
-      return res.status(500).json({ error: "Failed to generate payments report" });
+      console.error("Payments report error:", err);
+      return res.status(500).json({ message: "Payments report failed." });
     }
 
-    res.json(result);
+    res.json(results);
   });
 });
 
-// EXPENSES BY PERIOD
+// =========================
+// EXPENSES REPORT
+// =========================
 router.get("/expenses/:period", (req, res) => {
   const { period } = req.params;
+  const groupBy = groupMap[period]?.expenses;
 
-  let labelSql = "";
-  let groupSql = "";
-
-  if (period === "daily") {
-    labelSql = "DATE(ExpenseDate)";
-    groupSql = "DATE(ExpenseDate)";
-  } else if (period === "weekly") {
-    labelSql = "CONCAT(YEAR(ExpenseDate), '-W', WEEK(ExpenseDate))";
-    groupSql = "YEAR(ExpenseDate), WEEK(ExpenseDate)";
-  } else if (period === "monthly") {
-    labelSql = "DATE_FORMAT(ExpenseDate, '%Y-%m')";
-    groupSql = "DATE_FORMAT(ExpenseDate, '%Y-%m')";
-  } else if (period === "yearly") {
-    labelSql = "YEAR(ExpenseDate)";
-    groupSql = "YEAR(ExpenseDate)";
-  } else {
-    return res.status(400).json({ error: "Invalid period" });
+  if (!groupBy) {
+    return res.status(400).json({ message: "Invalid period." });
   }
 
   const sql = `
     SELECT
-      ${labelSql} AS Label,
-      IFNULL(SUM(Amount), 0) AS TotalExpenses
-    FROM expenses
-    GROUP BY ${groupSql}
-    ORDER BY Label ASC
+      ${groupBy} AS Label,
+      COALESCE(SUM(e.Amount), 0) AS TotalExpenses
+    FROM expenses e
+    GROUP BY Label
+    ORDER BY Label
   `;
 
-  db.query(sql, (err, result) => {
+  db.query(sql, (err, results) => {
     if (err) {
-      console.log("Expenses period report error:", err);
-      return res.status(500).json({ error: "Failed to generate expenses report" });
+      console.error("Expenses report error:", err);
+      return res.status(500).json({ message: "Expenses report failed." });
     }
 
-    res.json(result);
+    res.json(results);
   });
 });
 
-// LOSSES BY PERIOD
+// =========================
+// LOSSES REPORT
+// =========================
 router.get("/losses/:period", (req, res) => {
   const { period } = req.params;
+  const groupBy = groupMap[period]?.losses;
 
-  let labelSql = "";
-  let groupSql = "";
-
-  if (period === "daily") {
-    labelSql = "DATE(DateRecorded)";
-    groupSql = "DATE(DateRecorded)";
-  } else if (period === "weekly") {
-    labelSql = "CONCAT(YEAR(DateRecorded), '-W', WEEK(DateRecorded))";
-    groupSql = "YEAR(DateRecorded), WEEK(DateRecorded)";
-  } else if (period === "monthly") {
-    labelSql = "DATE_FORMAT(DateRecorded, '%Y-%m')";
-    groupSql = "DATE_FORMAT(DateRecorded, '%Y-%m')";
-  } else if (period === "yearly") {
-    labelSql = "YEAR(DateRecorded)";
-    groupSql = "YEAR(DateRecorded)";
-  } else {
-    return res.status(400).json({ error: "Invalid period" });
+  if (!groupBy) {
+    return res.status(400).json({ message: "Invalid period." });
   }
 
   const sql = `
     SELECT
-      ${labelSql} AS Label,
-      IFNULL(SUM(Quantity), 0) AS TotalLosses
-    FROM losses
-    GROUP BY ${groupSql}
-    ORDER BY Label ASC
+      ${groupBy} AS Label,
+      COALESCE(SUM(l.Quantity), 0) AS TotalLosses
+    FROM losses l
+    GROUP BY Label
+    ORDER BY Label
   `;
 
-  db.query(sql, (err, result) => {
+  db.query(sql, (err, results) => {
     if (err) {
-      console.log("Losses period report error:", err);
-      return res.status(500).json({ error: "Failed to generate losses report" });
+      console.error("Losses report error:", err);
+      return res.status(500).json({ message: "Losses report failed." });
     }
 
-    res.json(result);
+    res.json(results);
   });
 });
 
-// TOP PRODUCTS
+// =========================
+// TOP PRODUCTS REPORT
+// =========================
 router.get("/top-products", (req, res) => {
   const sql = `
     SELECT
       p.ProductName,
-      IFNULL(SUM(sd.Quantity), 0) AS TotalSold,
-      IFNULL(SUM(sd.Subtotal), 0) AS TotalRevenue
+      COALESCE(SUM(sd.Quantity), 0) AS TotalSold
     FROM sales_details sd
     JOIN products p ON sd.ProductID = p.ProductID
     GROUP BY p.ProductID, p.ProductName
-    ORDER BY TotalSold DESC
+    ORDER BY TotalSold DESC, p.ProductName ASC
     LIMIT 10
   `;
 
-  db.query(sql, (err, result) => {
+  db.query(sql, (err, results) => {
     if (err) {
-      console.log("Top products report error:", err);
-      return res.status(500).json({ error: "Failed to fetch top-selling products" });
+      console.error("Top products report error:", err);
+      return res.status(500).json({ message: "Top products report failed." });
     }
 
-    res.json(result);
+    res.json(results);
   });
 });
 
-// LOW STOCK
-router.get("/low-stock", (req, res) => {
+// =========================
+// MONTHLY SALES TREND
+// =========================
+router.get("/monthly-sales-trend", (req, res) => {
   const sql = `
-    SELECT ProductID, ProductName, StockQty
-    FROM products
-    WHERE StockQty <= 5
-    ORDER BY StockQty ASC
+    SELECT
+      DATE_FORMAT(s.SalesDate, '%Y-%m') AS Label,
+      COALESCE(SUM(sd.Subtotal), 0) AS TotalSales
+    FROM sales s
+    LEFT JOIN sales_details sd ON s.SalesID = sd.SalesID
+    GROUP BY Label
+    ORDER BY Label
   `;
 
-  db.query(sql, (err, result) => {
+  db.query(sql, (err, results) => {
     if (err) {
-      console.log("Low stock report error:", err);
-      return res.status(500).json({ error: "Failed to fetch low stock products" });
+      console.error("Monthly sales trend error:", err);
+      return res.status(500).json({ message: "Monthly sales trend failed." });
     }
 
-    res.json(result);
+    res.json(results);
   });
 });
 

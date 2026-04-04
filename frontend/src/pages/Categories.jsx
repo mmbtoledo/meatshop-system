@@ -1,19 +1,18 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-function Categories() {
+const Categories = () => {
   const [categories, setCategories] = useState([]);
   const [CategoryName, setCategoryName] = useState("");
-  const [editId, setEditId] = useState(null);
-  const [message, setMessage] = useState("");
+  const [editingId, setEditingId] = useState(null);
 
   const fetchCategories = async () => {
     try {
       const res = await axios.get("http://localhost:5000/api/categories");
       setCategories(res.data);
-    } catch (err) {
-      console.error("Error fetching categories:", err);
-      setMessage("Failed to fetch categories.");
+    } catch (error) {
+      console.error("Fetch categories error:", error);
+      alert("Failed to fetch categories.");
     }
   };
 
@@ -21,45 +20,38 @@ function Categories() {
     fetchCategories();
   }, []);
 
-  const clearForm = () => {
-    setCategoryName("");
-    setEditId(null);
-    setMessage("");
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!CategoryName) {
-      setMessage("Please enter category name.");
+    if (!CategoryName.trim()) {
+      alert("Category name is required.");
       return;
     }
 
     try {
-      if (editId === null) {
-        const res = await axios.post("http://localhost:5000/api/categories", {
-          CategoryName
+      if (editingId) {
+        await axios.put(`http://localhost:5000/api/categories/${editingId}`, {
+          CategoryName,
         });
-        setMessage(res.data.message);
+        alert("Category updated successfully.");
       } else {
-        const res = await axios.put(`http://localhost:5000/api/categories/${editId}`, {
-          CategoryName
+        await axios.post("http://localhost:5000/api/categories", {
+          CategoryName,
         });
-        setMessage(res.data.message);
+        alert("Category added successfully.");
       }
 
-      clearForm();
+      setCategoryName("");
+      setEditingId(null);
       fetchCategories();
-    } catch (err) {
-      console.error("Error saving category:", err);
-      setMessage("Failed to save category.");
+    } catch (error) {
+      alert(error.response?.data?.message || "The Category already exists.");
     }
   };
 
   const handleEdit = (category) => {
-    setEditId(category.CategoryID);
-    setCategoryName(category.CategoryName || "");
-    setMessage(`Now editing: ${category.CategoryName}`);
+    setEditingId(category.CategoryID);
+    setCategoryName(category.CategoryName);
   };
 
   const handleDelete = async (id) => {
@@ -67,148 +59,70 @@ function Categories() {
     if (!confirmDelete) return;
 
     try {
-      const res = await axios.delete(`http://localhost:5000/api/categories/${id}`);
-      setMessage(res.data.message);
-
-      if (editId === id) {
-        clearForm();
-      }
-
+      await axios.delete(`http://localhost:5000/api/categories/${id}`);
+      alert("Category deleted successfully.");
       fetchCategories();
-    } catch (err) {
-      console.error("Error deleting category:", err);
-      setMessage("Failed to delete category.");
+    } catch (error) {
+      alert(error.response?.data?.message || "Something went wrong.");
     }
   };
 
-  return (
-    <div style={{ padding: "30px" }}>
-      <h1 style={{ marginBottom: "20px" }}>Categories Management</h1>
+  const handleClear = () => {
+    setCategoryName("");
+    setEditingId(null);
+  };
 
-      <div
-        style={{
-          backgroundColor: "white",
-          padding: "20px",
-          borderRadius: "10px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-          marginBottom: "20px"
-        }}
-      >
-        <h2>{editId === null ? "Add Category" : "Edit Category"}</h2>
+  return (
+    <div style={{ padding: "20px" }}>
+      <h1>Categories Management</h1>
+
+      <div style={cardStyle}>
+        <h2>{editingId ? "Edit Category" : "Add Category"}</h2>
 
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: "12px" }}>
+          <div style={{ marginBottom: "10px" }}>
             <label>Category Name</label>
-            <br />
             <input
               type="text"
               value={CategoryName}
               onChange={(e) => setCategoryName(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px",
-                marginTop: "5px",
-                borderRadius: "6px",
-                border: "1px solid #ccc"
-              }}
+              style={inputStyle}
+              placeholder="Enter category name"
             />
           </div>
 
-          <button
-            type="submit"
-            style={{
-              backgroundColor: editId === null ? "green" : "#f39c12",
-              color: "white",
-              border: "none",
-              padding: "10px 16px",
-              borderRadius: "6px",
-              cursor: "pointer",
-              marginRight: "10px"
-            }}
-          >
-            {editId === null ? "Add Category" : "Update Category"}
+          <button type="submit" style={greenBtn}>
+            {editingId ? "Update Category" : "Add Category"}
           </button>
-
-          <button
-            type="button"
-            onClick={clearForm}
-            style={{
-              backgroundColor: "#7f8c8d",
-              color: "white",
-              border: "none",
-              padding: "10px 16px",
-              borderRadius: "6px",
-              cursor: "pointer"
-            }}
-          >
+          <button type="button" onClick={handleClear} style={grayBtn}>
             Clear
           </button>
         </form>
-
-        {message && (
-          <p style={{ marginTop: "15px", fontWeight: "bold" }}>{message}</p>
-        )}
       </div>
 
-      <div
-        style={{
-          backgroundColor: "white",
-          padding: "20px",
-          borderRadius: "10px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
-        }}
-      >
+      <div style={cardStyle}>
         <h2>Category List</h2>
-
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            marginTop: "15px"
-          }}
-        >
+        <table style={tableStyle}>
           <thead>
-            <tr style={{ backgroundColor: "#ecf0f1" }}>
-              <th style={tableHeaderStyle}>ID</th>
-              <th style={tableHeaderStyle}>Category Name</th>
-              <th style={tableHeaderStyle}>Actions</th>
+            <tr>
+              <th style={thStyle}>ID</th>
+              <th style={thStyle}>Category Name</th>
+              <th style={thStyle}>Actions</th>
             </tr>
           </thead>
-
           <tbody>
             {categories.length > 0 ? (
               categories.map((category) => (
                 <tr key={category.CategoryID}>
-                  <td style={tableCellStyle}>{category.CategoryID}</td>
-                  <td style={tableCellStyle}>{category.CategoryName}</td>
-                  <td style={tableCellStyle}>
-                    <button
-                      type="button"
-                      onClick={() => handleEdit(category)}
-                      style={{
-                        backgroundColor: "#3498db",
-                        color: "white",
-                        border: "none",
-                        padding: "8px 12px",
-                        borderRadius: "5px",
-                        cursor: "pointer",
-                        marginRight: "8px"
-                      }}
-                    >
+                  <td style={tdStyle}>{category.CategoryID}</td>
+                  <td style={tdStyle}>{category.CategoryName}</td>
+                  <td style={tdStyle}>
+                    <button style={blueBtn} onClick={() => handleEdit(category)}>
                       Edit
                     </button>
-
                     <button
-                      type="button"
+                      style={redBtn}
                       onClick={() => handleDelete(category.CategoryID)}
-                      style={{
-                        backgroundColor: "#e74c3c",
-                        color: "white",
-                        border: "none",
-                        padding: "8px 12px",
-                        borderRadius: "5px",
-                        cursor: "pointer"
-                      }}
                     >
                       Delete
                     </button>
@@ -217,8 +131,8 @@ function Categories() {
               ))
             ) : (
               <tr>
-                <td colSpan="3" style={{ padding: "12px", textAlign: "center" }}>
-                  No categories found
+                <td style={tdStyle} colSpan="3">
+                  No categories found.
                 </td>
               </tr>
             )}
@@ -227,17 +141,77 @@ function Categories() {
       </div>
     </div>
   );
-}
-
-const tableHeaderStyle = {
-  padding: "12px",
-  border: "1px solid #ddd",
-  textAlign: "left"
 };
 
-const tableCellStyle = {
-  padding: "12px",
-  border: "1px solid #ddd"
+const cardStyle = {
+  background: "#fff",
+  padding: "20px",
+  borderRadius: "10px",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+  marginBottom: "20px",
+};
+
+const inputStyle = {
+  width: "100%",
+  padding: "10px",
+  marginTop: "5px",
+  borderRadius: "5px",
+  border: "1px solid #ccc",
+};
+
+const tableStyle = {
+  width: "100%",
+  borderCollapse: "collapse",
+};
+
+const thStyle = {
+  border: "1px solid #ccc",
+  padding: "10px",
+  background: "#f2f2f2",
+  textAlign: "left",
+};
+
+const tdStyle = {
+  border: "1px solid #ccc",
+  padding: "10px",
+};
+
+const greenBtn = {
+  background: "green",
+  color: "white",
+  border: "none",
+  padding: "10px 15px",
+  borderRadius: "5px",
+  cursor: "pointer",
+  marginRight: "10px",
+};
+
+const grayBtn = {
+  background: "gray",
+  color: "white",
+  border: "none",
+  padding: "10px 15px",
+  borderRadius: "5px",
+  cursor: "pointer",
+};
+
+const blueBtn = {
+  background: "#2196f3",
+  color: "white",
+  border: "none",
+  padding: "8px 12px",
+  borderRadius: "5px",
+  cursor: "pointer",
+  marginRight: "8px",
+};
+
+const redBtn = {
+  background: "#f44336",
+  color: "white",
+  border: "none",
+  padding: "8px 12px",
+  borderRadius: "5px",
+  cursor: "pointer",
 };
 
 export default Categories;

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { motion } from "framer-motion";
 import {
   LineChart,
   Line,
@@ -7,9 +8,7 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  ResponsiveContainer,
-  BarChart,
-  Bar
+  ResponsiveContainer
 } from "recharts";
 
 function Dashboard() {
@@ -45,6 +44,7 @@ function Dashboard() {
         LowStockProducts: Number(res.data?.LowStockProducts || 0),
         NetProfit: Number(res.data?.NetProfit || 0)
       });
+      setMessage("");
     } catch (err) {
       console.error("Summary fetch error:", err);
       setMessage("Failed to load dashboard summary.");
@@ -53,10 +53,11 @@ function Dashboard() {
 
   const fetchSalesTrend = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/reports/sales/monthly");
+      const res = await axios.get("http://localhost:5000/api/reports/monthly-sales-trend");
       setSalesTrend(res.data || []);
     } catch (err) {
       console.error("Sales trend fetch error:", err);
+      setSalesTrend([]);
     }
   };
 
@@ -66,6 +67,7 @@ function Dashboard() {
       setTopProducts(res.data || []);
     } catch (err) {
       console.error("Top products fetch error:", err);
+      setTopProducts([]);
     }
   };
 
@@ -75,24 +77,73 @@ function Dashboard() {
       setLowStock(res.data || []);
     } catch (err) {
       console.error("Low stock fetch error:", err);
+      setLowStock([]);
     }
   };
 
-  const cardStyle = {
-    backgroundColor: "white",
-    padding: "24px",
-    borderRadius: "18px",
-    boxShadow: "0 6px 20px rgba(0,0,0,0.08)"
+  const pageStyle = {
+    padding: "30px",
+    background: "linear-gradient(135deg, #f8f4f1 0%, #f1ebe6 100%)",
+    minHeight: "100vh"
   };
 
+  const titleStyle = {
+    marginBottom: "24px",
+    fontSize: "48px",
+    fontWeight: "800",
+    color: "#4a251b",
+    letterSpacing: "0.5px"
+  };
+
+  const cardStyle = {
+    background: "linear-gradient(145deg, #fffdfb, #f7efe8)",
+    padding: "24px",
+    borderRadius: "22px",
+    boxShadow: "0 10px 30px rgba(74, 37, 27, 0.10)",
+    border: "1px solid rgba(196, 154, 108, 0.18)"
+  };
+
+  const statCards = [
+    {
+      title: "Total Sales",
+      value: `₱${Number(summary.TotalSales || 0).toLocaleString()}`,
+      color: "#5c2d1f"
+    },
+    {
+      title: "Total Payments",
+      value: `₱${Number(summary.TotalPayments || 0).toLocaleString()}`,
+      color: "#7a3525"
+    },
+    {
+      title: "Total Expenses",
+      value: `₱${Number(summary.TotalExpenses || 0).toLocaleString()}`,
+      color: "#9b4b35"
+    },
+    {
+      title: "Net Profit",
+      value: `₱${Number(summary.NetProfit || 0).toLocaleString()}`,
+      color: "#1f7a3d"
+    },
+    {
+      title: "Low Stock",
+      value: Number(summary.LowStockProducts || 0),
+      color: "#c62828"
+    }
+  ];
+
   return (
-    <div style={{ padding: "30px" }}>
-      <h1 style={{ marginBottom: "24px", fontSize: "40px", color: "#4a251b" }}>
+    <div style={pageStyle}>
+      <motion.h1
+        initial={{ opacity: 0, y: -16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45 }}
+        style={titleStyle}
+      >
         Dashboard
-      </h1>
+      </motion.h1>
 
       {message && (
-        <p style={{ color: "red", marginBottom: "15px", fontWeight: "600" }}>
+        <p style={{ color: "#d32f2f", marginBottom: "15px", fontWeight: "700" }}>
           {message}
         </p>
       )}
@@ -100,45 +151,35 @@ function Dashboard() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(5, 1fr)",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
           gap: "18px",
           marginBottom: "24px"
         }}
       >
-        <div style={cardStyle}>
-          <h3>Total Sales</h3>
-          <p style={{ fontSize: "28px", fontWeight: "800", color: "#5c2d1f" }}>
-            ₱{Number(summary.TotalSales || 0).toLocaleString()}
-          </p>
-        </div>
-
-        <div style={cardStyle}>
-          <h3>Total Payments</h3>
-          <p style={{ fontSize: "28px", fontWeight: "800", color: "#5c2d1f" }}>
-            ₱{Number(summary.TotalPayments || 0).toLocaleString()}
-          </p>
-        </div>
-
-        <div style={cardStyle}>
-          <h3>Total Expenses</h3>
-          <p style={{ fontSize: "28px", fontWeight: "800", color: "#8c3f2f" }}>
-            ₱{Number(summary.TotalExpenses || 0).toLocaleString()}
-          </p>
-        </div>
-
-        <div style={cardStyle}>
-          <h3>Net Profit</h3>
-          <p style={{ fontSize: "28px", fontWeight: "800", color: "green" }}>
-            ₱{Number(summary.NetProfit || 0).toLocaleString()}
-          </p>
-        </div>
-
-        <div style={cardStyle}>
-          <h3>Low Stock</h3>
-          <p style={{ fontSize: "28px", fontWeight: "800", color: "red" }}>
-            {Number(summary.LowStockProducts || 0)}
-          </p>
-        </div>
+        {statCards.map((card, index) => (
+          <motion.div
+            key={card.title}
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: index * 0.08 }}
+            whileHover={{ y: -6, scale: 1.02 }}
+            style={cardStyle}
+          >
+            <h3 style={{ color: "#4a251b", marginBottom: "12px", fontSize: "24px" }}>
+              {card.title}
+            </h3>
+            <p
+              style={{
+                fontSize: "34px",
+                fontWeight: "800",
+                color: card.color,
+                margin: 0
+              }}
+            >
+              {card.value}
+            </p>
+          </motion.div>
+        ))}
       </div>
 
       <div
@@ -149,52 +190,107 @@ function Dashboard() {
           marginBottom: "24px"
         }}
       >
-        <div style={cardStyle}>
-          <h3 style={{ marginBottom: "15px" }}>Monthly Sales Trend</h3>
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.15 }}
+          style={cardStyle}
+        >
+          <h3 style={{ marginBottom: "18px", color: "#4a251b", fontSize: "28px" }}>
+            Monthly Sales Trend
+          </h3>
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={salesTrend}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="Label" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="TotalSales" stroke="#8c3f2f" strokeWidth={3} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e7d7ca" />
+              <XAxis dataKey="Label" stroke="#6d4c41" />
+              <YAxis stroke="#6d4c41" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#fffaf5",
+                  borderRadius: "12px",
+                  border: "1px solid #d7b899"
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="TotalSales"
+                stroke="#8c3f2f"
+                strokeWidth={4}
+                dot={{ r: 5 }}
+                activeDot={{ r: 7 }}
+              />
             </LineChart>
           </ResponsiveContainer>
-        </div>
+        </motion.div>
 
-        <div style={cardStyle}>
-          <h3 style={{ marginBottom: "15px" }}>Low Stock Alerts</h3>
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.22 }}
+          style={cardStyle}
+        >
+          <h3 style={{ marginBottom: "18px", color: "#4a251b", fontSize: "28px" }}>
+            Low Stock Alerts
+          </h3>
+
           {lowStock.length > 0 ? (
-            lowStock.map((item) => (
-              <div
+            lowStock.map((item, index) => (
+              <motion.div
                 key={item.ProductID}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.25, delay: index * 0.05 }}
                 style={{
-                  padding: "10px 0",
-                  borderBottom: "1px solid #eee"
+                  padding: "12px 0",
+                  borderBottom: "1px solid #eaded3"
                 }}
               >
-                <strong>{item.ProductName}</strong>
-                <p style={{ margin: 0, color: "red" }}>Stock: {item.StockQty}</p>
-              </div>
+                <strong style={{ color: "#4a251b", fontSize: "16px" }}>
+                  {item.ProductName}
+                </strong>
+                <p style={{ margin: "4px 0 0", color: "#c62828", fontWeight: "600" }}>
+                  Stock: {item.StockQty}
+                </p>
+              </motion.div>
             ))
           ) : (
-            <p>No low stock products.</p>
+            <p style={{ color: "#4a251b" }}>No low stock products.</p>
           )}
-        </div>
+        </motion.div>
       </div>
 
-      <div style={cardStyle}>
-        <h3 style={{ marginBottom: "15px" }}>Top Selling Products</h3>
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, delay: 0.28 }}
+        style={cardStyle}
+      >
+        <h3 style={{ marginBottom: "18px", color: "#4a251b", fontSize: "28px" }}>
+          Top Selling Products
+        </h3>
         <ResponsiveContainer width="100%" height={320}>
-          <BarChart data={topProducts}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="ProductName" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="TotalSold" fill="#5c2d1f" />
-          </BarChart>
+          <LineChart data={topProducts}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e7d7ca" />
+            <XAxis dataKey="ProductName" stroke="#6d4c41" />
+            <YAxis stroke="#6d4c41" />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "#fffaf5",
+                borderRadius: "12px",
+                border: "1px solid #d7b899"
+              }}
+            />
+            <Line
+              type="monotone"
+              dataKey="TotalSold"
+              stroke="#5c2d1f"
+              strokeWidth={4}
+              dot={{ r: 5 }}
+              activeDot={{ r: 7 }}
+            />
+          </LineChart>
         </ResponsiveContainer>
-      </div>
+      </motion.div>
     </div>
   );
 }

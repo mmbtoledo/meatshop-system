@@ -2,98 +2,132 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 
-
-// GET ALL PRODUCTS
+// GET all products with category name
 router.get("/", (req, res) => {
-  const sql = "SELECT * FROM products ORDER BY ProductID DESC";
+  const sql = `
+    SELECT 
+      p.ProductID,
+      p.ProductName,
+      p.CurrentPrice,
+      p.StockQty,
+      p.CategoryID,
+      c.CategoryName
+    FROM products p
+    LEFT JOIN categories c ON p.CategoryID = c.CategoryID
+    ORDER BY p.ProductID DESC
+  `;
 
-  db.query(sql, (err, result) => {
+  db.query(sql, (err, results) => {
     if (err) {
-      console.log(err);
-      return res.status(500).json({ error: "Failed to fetch products" });
+      console.error("Fetch products error:", err);
+      return res.status(500).json({ message: "Database error." });
     }
 
-    res.json(result);
+    res.json(results);
   });
 });
 
-
-// GET SINGLE PRODUCT
-router.get("/:id", (req, res) => {
-  const sql = "SELECT * FROM products WHERE ProductID = ?";
-
-  db.query(sql, [req.params.id], (err, result) => {
-    if (err) {
-      console.log(err);
-      return res.status(500).json({ error: "Failed to fetch product" });
-    }
-
-    res.json(result[0]);
-  });
-});
-
-
-// ADD PRODUCT
+// ADD product
 router.post("/", (req, res) => {
-  const { ProductName, CurrentPrice, StockQty } = req.body;
+  const { ProductName, CurrentPrice, StockQty, CategoryID } = req.body;
 
-  if (!ProductName || CurrentPrice === "" || StockQty === "") {
-    return res.status(400).json({ error: "All fields are required" });
+  if (!ProductName || !ProductName.trim()) {
+    return res.status(400).json({ message: "Product name is required." });
+  }
+
+  if (CurrentPrice === "" || CurrentPrice === null || CurrentPrice === undefined) {
+    return res.status(400).json({ message: "Current price is required." });
+  }
+
+  if (StockQty === "" || StockQty === null || StockQty === undefined) {
+    return res.status(400).json({ message: "Stock quantity is required." });
+  }
+
+  if (!CategoryID) {
+    return res.status(400).json({ message: "Category is required." });
   }
 
   const sql = `
-    INSERT INTO products (ProductName, CurrentPrice, StockQty)
-    VALUES (?, ?, ?)
+    INSERT INTO products (ProductName, CurrentPrice, StockQty, CategoryID)
+    VALUES (?, ?, ?, ?)
   `;
 
-  db.query(sql, [ProductName, CurrentPrice, StockQty], (err, result) => {
-    if (err) {
-      console.log(err);
-      return res.status(500).json({ error: "Failed to add product" });
-    }
+  db.query(
+    sql,
+    [ProductName.trim(), CurrentPrice, StockQty, CategoryID],
+    (err, result) => {
+      if (err) {
+        if (err.code === "ER_DUP_ENTRY") {
+          return res.status(400).json({ message: "Product already exists." });
+        }
 
-    res.json({ message: "Product added successfully" });
-  });
+        console.error("Insert product error:", err);
+        return res.status(500).json({ message: "Database error." });
+      }
+
+      res.status(201).json({ message: "Product added successfully." });
+    }
+  );
 });
 
-
-// UPDATE PRODUCT
+// UPDATE product
 router.put("/:id", (req, res) => {
-  const { ProductName, CurrentPrice, StockQty } = req.body;
-  const productId = req.params.id;
+  const { id } = req.params;
+  const { ProductName, CurrentPrice, StockQty, CategoryID } = req.body;
 
-  if (!ProductName || CurrentPrice === "" || StockQty === "") {
-    return res.status(400).json({ error: "All fields are required" });
+  if (!ProductName || !ProductName.trim()) {
+    return res.status(400).json({ message: "Product name is required." });
+  }
+
+  if (CurrentPrice === "" || CurrentPrice === null || CurrentPrice === undefined) {
+    return res.status(400).json({ message: "Current price is required." });
+  }
+
+  if (StockQty === "" || StockQty === null || StockQty === undefined) {
+    return res.status(400).json({ message: "Stock quantity is required." });
+  }
+
+  if (!CategoryID) {
+    return res.status(400).json({ message: "Category is required." });
   }
 
   const sql = `
     UPDATE products
-    SET ProductName = ?, CurrentPrice = ?, StockQty = ?
+    SET ProductName = ?, CurrentPrice = ?, StockQty = ?, CategoryID = ?
     WHERE ProductID = ?
   `;
 
-  db.query(sql, [ProductName, CurrentPrice, StockQty, productId], (err, result) => {
-    if (err) {
-      console.log(err);
-      return res.status(500).json({ error: "Failed to update product" });
-    }
+  db.query(
+    sql,
+    [ProductName.trim(), CurrentPrice, StockQty, CategoryID, id],
+    (err, result) => {
+      if (err) {
+        if (err.code === "ER_DUP_ENTRY") {
+          return res.status(400).json({ message: "Product already exists." });
+        }
 
-    res.json({ message: "Product updated successfully" });
-  });
+        console.error("Update product error:", err);
+        return res.status(500).json({ message: "Database error." });
+      }
+
+      res.json({ message: "Product updated successfully." });
+    }
+  );
 });
 
-
-// DELETE PRODUCT
+// DELETE product
 router.delete("/:id", (req, res) => {
+  const { id } = req.params;
+
   const sql = "DELETE FROM products WHERE ProductID = ?";
 
-  db.query(sql, [req.params.id], (err, result) => {
+  db.query(sql, [id], (err, result) => {
     if (err) {
-      console.log(err);
-      return res.status(500).json({ error: "Failed to delete product" });
+      console.error("Delete product error:", err);
+      return res.status(500).json({ message: "Database error." });
     }
 
-    res.json({ message: "Product deleted successfully" });
+    res.json({ message: "Product deleted successfully." });
   });
 });
 
