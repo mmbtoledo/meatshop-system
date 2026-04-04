@@ -16,6 +16,8 @@ import ForgotPassword from "./pages/ForgotPassword";
 import Users from "./pages/Users";
 import SystemPage from "./pages/SystemPage";
 
+import "./App.css";
+
 function ProtectedLayout({ children, allowedRoles }) {
   const token = localStorage.getItem("token");
   const user = JSON.parse(localStorage.getItem("user"));
@@ -37,22 +39,10 @@ function ProtectedLayout({ children, allowedRoles }) {
   }
 
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        fontFamily: "Arial, sans-serif"
-      }}
-    >
+    <div className="app-shell">
       <Sidebar />
-
-      <div
-        style={{
-          flex: 1,
-          backgroundColor: "#f5f6fa"
-        }}
-      >
-        {children}
+      <div className="app-content">
+        <div className="app-content-inner">{children}</div>
       </div>
     </div>
   );
@@ -62,11 +52,9 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Public Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
-        {/* Employee / Admin / Super Admin */}
         <Route
           path="/products"
           element={
@@ -103,7 +91,6 @@ function App() {
           }
         />
 
-        {/* Admin / Super Admin */}
         <Route
           path="/"
           element={
@@ -158,7 +145,6 @@ function App() {
           }
         />
 
-        {/* Super Admin only */}
         <Route
           path="/users"
           element={
@@ -177,7 +163,6 @@ function App() {
           }
         />
 
-        {/* Fallback */}
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </Router>
