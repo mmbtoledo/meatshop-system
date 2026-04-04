@@ -26,13 +26,6 @@ function Dashboard() {
   const [lowStock, setLowStock] = useState([]);
   const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    fetchSummary();
-    fetchSalesTrend();
-    fetchTopProducts();
-    fetchLowStock();
-  }, []);
-
   const fetchSummary = async () => {
     try {
       const res = await axios.get("http://localhost:5000/api/reports/summary");
@@ -81,6 +74,23 @@ function Dashboard() {
     }
   };
 
+  const fetchDashboardData = () => {
+    fetchSummary();
+    fetchSalesTrend();
+    fetchTopProducts();
+    fetchLowStock();
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+
+    const interval = setInterval(() => {
+      fetchDashboardData();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const pageStyle = {
     padding: "30px",
     background: "linear-gradient(135deg, #f8f4f1 0%, #f1ebe6 100%)",
@@ -103,6 +113,8 @@ function Dashboard() {
     border: "1px solid rgba(196, 154, 108, 0.18)"
   };
 
+  const profitColor = summary.NetProfit < 0 ? "#c62828" : "#1f7a3d";
+
   const statCards = [
     {
       title: "Total Sales",
@@ -122,7 +134,7 @@ function Dashboard() {
     {
       title: "Net Profit",
       value: `₱${Number(summary.NetProfit || 0).toLocaleString()}`,
-      color: "#1f7a3d"
+      color: profitColor
     },
     {
       title: "Low Stock",
