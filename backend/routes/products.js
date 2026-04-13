@@ -2,14 +2,16 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 
-// GET all products with category name
+// =======================
+// GET ALL PRODUCTS
+// =======================
 router.get("/", (req, res) => {
   const sql = `
     SELECT 
-      p.ProductID,
-      p.ProductName,
-      p.CurrentPrice,
-      p.StockQty,
+      p.ProductID, 
+      p.ProductName, 
+      p.CurrentPrice, 
+      p.StockQty, 
       p.CategoryID,
       c.CategoryName
     FROM products p
@@ -19,112 +21,113 @@ router.get("/", (req, res) => {
 
   db.query(sql, (err, results) => {
     if (err) {
-      console.error("Fetch products error:", err);
-      return res.status(500).json({ message: "Database error." });
+      console.error("Fetch error:", err);
+      return res.status(500).json({ message: "Database error" });
     }
-
     res.json(results);
   });
 });
 
-// ADD product
+// =======================
+// ADD OR UPDATE PRODUCT
+// =======================
 router.post("/", (req, res) => {
-  const { ProductName, CurrentPrice, StockQty, CategoryID } = req.body;
+  let { ProductName, CurrentPrice, StockQty, CategoryID } = req.body;
 
-  if (!ProductName || !ProductName.trim()) {
-    return res.status(400).json({ message: "Product name is required." });
+  if (!ProductName || !CurrentPrice || !StockQty || !CategoryID) {
+    return res.status(400).json({ message: "All fields are required." });
   }
 
-  if (CurrentPrice === "" || CurrentPrice === null || CurrentPrice === undefined) {
-    return res.status(400).json({ message: "Current price is required." });
-  }
-
-  if (StockQty === "" || StockQty === null || StockQty === undefined) {
-    return res.status(400).json({ message: "Stock quantity is required." });
-  }
-
-  if (!CategoryID) {
-    return res.status(400).json({ message: "Category is required." });
-  }
+  ProductName = ProductName.trim();
 
   const sql = `
     INSERT INTO products (ProductName, CurrentPrice, StockQty, CategoryID)
     VALUES (?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      StockQty = StockQty + VALUES(StockQty),
+      CurrentPrice = VALUES(CurrentPrice),
+      CategoryID = VALUES(CategoryID)
   `;
 
   db.query(
     sql,
-    [ProductName.trim(), CurrentPrice, StockQty, CategoryID],
-    (err, result) => {
+    [ProductName, CurrentPrice, StockQty, CategoryID],
+    (err) => {
       if (err) {
-        if (err.code === "ER_DUP_ENTRY") {
-          return res.status(400).json({ message: "Product already exists." });
-        }
-
-        console.error("Insert product error:", err);
+        console.error("Insert/Update error:", err);
         return res.status(500).json({ message: "Database error." });
       }
 
-      res.status(201).json({ message: "Product added successfully." });
+      res.json({
+        message: "Product added or stock updated successfully."
+      });
     }
   );
 });
 
-// UPDATE product
+// =======================
+// UPDATE PRODUCT (EDIT)
+// =======================
 router.put("/:id", (req, res) => {
   const { id } = req.params;
-  const { ProductName, CurrentPrice, StockQty, CategoryID } = req.body;
+  let { ProductName, CurrentPrice, StockQty, CategoryID } = req.body;
 
-  if (!ProductName || !ProductName.trim()) {
-    return res.status(400).json({ message: "Product name is required." });
+  if (!ProductName || !CurrentPrice || !StockQty || !CategoryID) {
+    return res.status(400).json({ message: "All fields are required." });
   }
 
-  if (CurrentPrice === "" || CurrentPrice === null || CurrentPrice === undefined) {
-    return res.status(400).json({ message: "Current price is required." });
-  }
+  ProductName = ProductName.trim();
 
-  if (StockQty === "" || StockQty === null || StockQty === undefined) {
-    return res.status(400).json({ message: "Stock quantity is required." });
-  }
-
-  if (!CategoryID) {
-    return res.status(400).json({ message: "Category is required." });
-  }
-
-  const sql = `
-    UPDATE products
-    SET ProductName = ?, CurrentPrice = ?, StockQty = ?, CategoryID = ?
-    WHERE ProductID = ?
+  // 🔍 check duplicate EXCEPT itself
+  const checkSql = `
+    SELECT * FROM products 
+    WHERE LOWER(ProductName) = LOWER(?) 
+    AND ProductID != ?
   `;
 
-  db.query(
-    sql,
-    [ProductName.trim(), CurrentPrice, StockQty, CategoryID, id],
-    (err, result) => {
-      if (err) {
-        if (err.code === "ER_DUP_ENTRY") {
-          return res.status(400).json({ message: "Product already exists." });
+  db.query(checkSql, [ProductName, id], (err, results) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Database error" });
+    }
+
+    if (results.length > 0) {
+      return res.status(400).json({
+        message: "Another product with this name already exists."
+      });
+    }
+
+    const updateSql = `
+      UPDATE products
+      SET ProductName=?, CurrentPrice=?, StockQty=?, CategoryID=?
+      WHERE ProductID=?
+    `;
+
+    db.query(
+      updateSql,
+      [ProductName, CurrentPrice, StockQty, CategoryID, id],
+      (err) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ message: "Update failed." });
         }
 
-        console.error("Update product error:", err);
-        return res.status(500).json({ message: "Database error." });
+        res.json({ message: "Product updated successfully." });
       }
-
-      res.json({ message: "Product updated successfully." });
-    }
-  );
+    );
+  });
 });
 
-// DELETE product
+// =======================
+// DELETE PRODUCT
+// =======================
 router.delete("/:id", (req, res) => {
-  const { id } = req.params;
-
   const sql = "DELETE FROM products WHERE ProductID = ?";
 
-  db.query(sql, [id], (err, result) => {
+  db.query(sql, [req.params.id], (err) => {
     if (err) {
-      console.error("Delete product error:", err);
-      return res.status(500).json({ message: "Database error." });
+      console.error(err);
+      return res.status(500).json({ message: "Delete failed." });
     }
 
     res.json({ message: "Product deleted successfully." });
