@@ -6,6 +6,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const usersRoute = require("./routes/users");
 const productRoutes = require("./routes/products");
 const categoryRoutes = require("./routes/categories");
 const supplierRoutes = require("./routes/suppliers");
@@ -21,6 +22,7 @@ app.get("/", (req, res) => {
   res.send("Lovier's Meatshop API Running");
 });
 
+app.use("/api/users", usersRoute);
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
@@ -32,6 +34,4 @@ app.use("/api/expenses", expenseRoutes);
 app.use("/api/losses", lossRoutes);
 app.use("/api/reports", reportRoutes);
 
-app.listen(5000, () => {
-  console.log("Server running on port 5000");
-});
+app.listen(5000, () => console.log("Server running on port 5000"));

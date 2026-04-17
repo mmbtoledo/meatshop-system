@@ -22,6 +22,9 @@ function Login() {
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.user));
 
+// ✅ ADD THIS (for welcome popup)
+      localStorage.setItem("username", res.data.user.Username);
+
       const role = res.data.user.Role;
 
       if (role === "Employee") {
@@ -31,7 +34,7 @@ function Login() {
       }
     } catch (err) {
       console.error(err);
-      setMessage("Invalid username or password.");
+      setMessage(err.response?.data?.error || "Login failed.");
     }
   };
 

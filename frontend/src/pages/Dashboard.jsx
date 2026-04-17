@@ -21,6 +21,8 @@ function Dashboard() {
     NetProfit: 0
   });
 
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [username, setUsername] = useState("");
   const [salesTrend, setSalesTrend] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
   const [lowStock, setLowStock] = useState([]);
@@ -82,14 +84,25 @@ function Dashboard() {
   };
 
   useEffect(() => {
+  fetchDashboardData();
+
+  // ✅ SHOW WELCOME POPUP
+  const storedName = localStorage.getItem("username");
+  if (storedName) {
+    setUsername(storedName);
+    setShowWelcome(true);
+
+    setTimeout(() => {
+      setShowWelcome(false);
+    }, 3000);
+  }
+
+  const interval = setInterval(() => {
     fetchDashboardData();
+  }, 30000);
 
-    const interval = setInterval(() => {
-      fetchDashboardData();
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
+  return () => clearInterval(interval);
+}, []);
 
   const pageStyle = {
     padding: "30px",
@@ -145,6 +158,24 @@ function Dashboard() {
 
   return (
     <div style={pageStyle}>
+    {showWelcome && (
+  <div
+    style={{
+      position: "fixed",
+      top: "20px",
+      right: "20px",
+      background: "#4a251b",
+      color: "white",
+      padding: "12px 18px",
+      borderRadius: "12px",
+      fontWeight: "700",
+      boxShadow: "0 8px 20px rgba(0,0,0,0.2)",
+      zIndex: 999
+    }}
+  >
+    Welcome, {username} 👋
+  </div>
+)}
       <motion.h1
         initial={{ opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}

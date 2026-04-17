@@ -14,7 +14,6 @@ import Reports from "./pages/Reports";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import Users from "./pages/Users";
-import SystemPage from "./pages/SystemPage";
 
 import "./App.css";
 
@@ -146,23 +145,13 @@ function App() {
         />
 
         <Route
-          path="/users"
-          element={
-            <ProtectedLayout allowedRoles={["Super Admin"]}>
-              <Users />
-            </ProtectedLayout>
-          }
-        />
-
-        <Route
-          path="/system"
-          element={
-            <ProtectedLayout allowedRoles={["Super Admin"]}>
-              <SystemPage />
-            </ProtectedLayout>
-          }
-        />
-
+  path="/users"
+  element={
+    <ProtectedLayout allowedRoles={["Admin", "Super Admin"]}>
+      <Users />
+    </ProtectedLayout>
+  }
+/>
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </Router>

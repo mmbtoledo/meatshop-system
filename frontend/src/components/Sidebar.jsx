@@ -10,21 +10,21 @@ function Sidebar() {
   const role = user?.Role;
 
   const allMenuItems = [
-    { path: "/products", label: "Products", roles: ["Employee", "Admin", "Super Admin"] },
-    { path: "/deliveries", label: "Deliveries", roles: ["Employee", "Admin", "Super Admin"] },
-    { path: "/sales", label: "Sales", roles: ["Employee", "Admin", "Super Admin"] },
-    { path: "/payments", label: "Payments", roles: ["Employee", "Admin", "Super Admin"] },
+  { path: "/products", label: "Products", roles: ["Employee", "Admin", "Super Admin"] },
+  { path: "/deliveries", label: "Deliveries", roles: ["Employee", "Admin", "Super Admin"] },
+  { path: "/sales", label: "Sales", roles: ["Employee", "Admin", "Super Admin"] },
+  { path: "/payments", label: "Payments", roles: ["Employee", "Admin", "Super Admin"] },
 
-    { path: "/", label: "Dashboard", roles: ["Admin", "Super Admin"] },
-    { path: "/categories", label: "Categories", roles: ["Admin", "Super Admin"] },
-    { path: "/suppliers", label: "Suppliers", roles: ["Admin", "Super Admin"] },
-    { path: "/expenses", label: "Expenses", roles: ["Admin", "Super Admin"] },
-    { path: "/losses", label: "Losses", roles: ["Admin", "Super Admin"] },
-    { path: "/reports", label: "Reports", roles: ["Admin", "Super Admin"] },
+  { path: "/", label: "Dashboard", roles: ["Admin", "Super Admin"] },
+  { path: "/categories", label: "Categories", roles: ["Admin", "Super Admin"] },
+  { path: "/suppliers", label: "Suppliers", roles: ["Admin", "Super Admin"] },
+  { path: "/expenses", label: "Expenses", roles: ["Admin", "Super Admin"] },
+  { path: "/losses", label: "Losses", roles: ["Admin", "Super Admin"] },
+  { path: "/reports", label: "Reports", roles: ["Admin", "Super Admin"] },
 
-    { path: "/users", label: "Users", roles: ["Super Admin"] },
-    { path: "/system", label: "System", roles: ["Super Admin"] }
-  ];
+  // ✅ FIXED
+  { path: "/users", label: "Users", roles: ["Admin", "Super Admin"] }
+];
 
   const menuItems = allMenuItems.filter((item) => item.roles.includes(role));
 

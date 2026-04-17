@@ -9,9 +9,12 @@ const SECRET_KEY = "loviers_secret_key";
 router.post("/login", (req, res) => {
   const { Username, Password } = req.body;
 
+  console.log("LOGIN INPUT:", req.body);
+
   const sql = `
-    SELECT * FROM users
-    WHERE Username = ? AND Password = ?
+    SELECT * FROM users 
+    WHERE Username = ? 
+    AND Password = ?
   `;
 
   db.query(sql, [Username, Password], (err, result) => {
@@ -20,11 +23,25 @@ router.post("/login", (req, res) => {
       return res.status(500).json({ error: "Login failed" });
     }
 
+    console.log("RESULT:", result);
+
     if (result.length === 0) {
       return res.status(401).json({ error: "Invalid username or password" });
     }
 
     const user = result[0];
+
+    if (user.isActive === 0) {
+      return res.status(403).json({
+        error: "Account is deactivated"
+      });
+    }
+
+    // SAVE LOGIN LOG
+    db.query(
+      "INSERT INTO activity_logs (UserID) VALUES (?)",
+      [user.UserID]
+    );
 
     const token = jwt.sign(
       {
@@ -39,51 +56,7 @@ router.post("/login", (req, res) => {
     res.json({
       message: "Login successful",
       token,
-      user: {
-        UserID: user.UserID,
-        Username: user.Username,
-        Role: user.Role
-      }
-    });
-  });
-});
-
-// FORGOT PASSWORD
-router.post("/forgot-password", (req, res) => {
-  const { Username, NewPassword } = req.body;
-
-  if (!Username || !NewPassword) {
-    return res.status(400).json({ error: "Username and new password are required" });
-  }
-
-  const checkSql = `
-    SELECT * FROM users
-    WHERE Username = ?
-  `;
-
-  db.query(checkSql, [Username], (checkErr, checkResult) => {
-    if (checkErr) {
-      console.log("Forgot password check error:", checkErr);
-      return res.status(500).json({ error: "Failed to verify user" });
-    }
-
-    if (checkResult.length === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const updateSql = `
-      UPDATE users
-      SET Password = ?
-      WHERE Username = ?
-    `;
-
-    db.query(updateSql, [NewPassword, Username], (updateErr) => {
-      if (updateErr) {
-        console.log("Forgot password update error:", updateErr);
-        return res.status(500).json({ error: "Failed to reset password" });
-      }
-
-      res.json({ message: "Password reset successful" });
+      user
     });
   });
 });
