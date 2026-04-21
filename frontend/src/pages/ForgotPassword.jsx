@@ -6,6 +6,7 @@ import logo from "../assets/logo.png";
 
 function ForgotPassword() {
   const [Username, setUsername] = useState("");
+  const [OldPassword, setOldPassword] = useState("");
   const [NewPassword, setNewPassword] = useState("");
   const [message, setMessage] = useState("");
 
@@ -15,6 +16,7 @@ function ForgotPassword() {
     try {
       const res = await axios.post("http://localhost:5000/api/auth/forgot-password", {
         Username,
+        OldPassword,
         NewPassword
       });
 
@@ -114,6 +116,17 @@ function ForgotPassword() {
               placeholder="Enter your username"
             />
           </div>
+
+          <div style={{ marginBottom: "16px" }}>
+  <label style={labelStyle}>Old Password</label>
+  <input
+    type="password"
+    value={OldPassword}
+    onChange={(e) => setOldPassword(e.target.value)}
+    style={inputStyle}
+    placeholder="Enter your old password"
+  />
+</div>
 
           <div style={{ marginBottom: "18px" }}>
             <label style={labelStyle}>New Password</label>

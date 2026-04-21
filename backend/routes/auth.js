@@ -61,4 +61,65 @@ router.post("/login", (req, res) => {
   });
 });
 
+// FORGOT PASSWORD (WITH OLD PASSWORD VERIFICATION)
+router.post("/forgot-password", (req, res) => {
+  const { Username, OldPassword, NewPassword } = req.body;
+
+  if (!Username || !OldPassword || !NewPassword) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
+
+  // 🔍 CHECK USER + OLD PASSWORD
+  const checkSql = `
+    SELECT * FROM users 
+    WHERE Username = ? AND Password = ?
+  `;
+
+  db.query(checkSql, [Username, OldPassword], (err, result) => {
+    if (err) {
+      console.log("Check error:", err);
+      return res.status(500).json({ error: "Server error" });
+    }
+
+    // ❌ USERNAME OR PASSWORD WRONG
+    if (result.length === 0) {
+      // Check if username exists separately
+      db.query(
+        "SELECT * FROM users WHERE Username = ?",
+        [Username],
+        (err2, userCheck) => {
+          if (userCheck.length === 0) {
+            return res.status(404).json({
+              error: "This Username doesn't exist"
+            });
+          } else {
+            return res.status(401).json({
+              error: "Old password is incorrect"
+            });
+          }
+        }
+      );
+      return;
+    }
+
+    // ✅ UPDATE PASSWORD
+    const updateSql = `
+      UPDATE users 
+      SET Password = ? 
+      WHERE Username = ?
+    `;
+
+    db.query(updateSql, [NewPassword, Username], (updateErr) => {
+      if (updateErr) {
+        console.log("Update error:", updateErr);
+        return res.status(500).json({
+          error: "Failed to update password"
+        });
+      }
+
+      res.json({ message: "Password successfully updated" });
+    });
+  });
+});
+
 module.exports = router;
