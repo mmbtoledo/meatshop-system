@@ -20,11 +20,29 @@ function Expenses() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    const amount = parseFloat(Amount);
+
+    // FRONTEND VALIDATION
+    if (!Amount) {
+      setMessage("Amount is required");
+      return;
+    }
+
+    if (isNaN(amount)) {
+      setMessage("Amount must be a valid number");
+      return;
+    }
+
+    if (amount <= 0) {
+      setMessage("Amount must be greater than 0");
+      return;
+    }
+
     try {
       const res = await axios.post("http://localhost:5000/api/expenses", {
         ExpenseDate,
         Description,
-        Amount
+        Amount: amount
       });
 
       setMessage(res.data.message);
@@ -46,23 +64,51 @@ function Expenses() {
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: "12px" }}>
             <label>Date</label>
-            <input type="date" value={ExpenseDate} onChange={(e) => setExpenseDate(e.target.value)} style={inputStyle} />
+            <input
+              type="date"
+              value={ExpenseDate}
+              onChange={(e) => setExpenseDate(e.target.value)}
+              style={inputStyle}
+            />
           </div>
 
           <div style={{ marginBottom: "12px" }}>
             <label>Description</label>
-            <input type="text" value={Description} onChange={(e) => setDescription(e.target.value)} style={inputStyle} />
+            <input
+              type="text"
+              value={Description}
+              onChange={(e) => setDescription(e.target.value)}
+              style={inputStyle}
+            />
           </div>
 
           <div style={{ marginBottom: "12px" }}>
             <label>Amount</label>
-            <input type="number" value={Amount} onChange={(e) => setAmount(e.target.value)} style={inputStyle} />
+            <input
+              type="text"
+              value={Amount}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9.]/g, "");
+
+                // prevent multiple decimals
+                if ((value.match(/\./g) || []).length > 1) return;
+
+                setAmount(value);
+              }}
+              style={inputStyle}
+            />
           </div>
 
-          <button type="submit" style={buttonStyle}>Save Expense</button>
+          <button type="submit" style={buttonStyle}>
+            Save Expense
+          </button>
         </form>
 
-        {message && <p style={{ marginTop: "10px", fontWeight: "bold" }}>{message}</p>}
+        {message && (
+          <p style={{ marginTop: "10px", fontWeight: "bold" }}>
+            {message}
+          </p>
+        )}
       </div>
 
       <div style={boxStyle}>
@@ -92,6 +138,7 @@ function Expenses() {
   );
 }
 
+// STYLES (UNCHANGED)
 const boxStyle = {
   backgroundColor: "white",
   padding: "20px",

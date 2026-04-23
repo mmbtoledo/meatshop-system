@@ -25,21 +25,13 @@ function Deliveries() {
   };
 
   const fetchSuppliers = async () => {
-    try {
-      const res = await axios.get("http://localhost:5000/api/suppliers");
-      setSuppliers(res.data);
-    } catch (err) {
-      console.error(err);
-    }
+    const res = await axios.get("http://localhost:5000/api/suppliers");
+    setSuppliers(res.data);
   };
 
   const fetchProducts = async () => {
-    try {
-      const res = await axios.get("http://localhost:5000/api/products");
-      setProducts(res.data);
-    } catch (err) {
-      console.error(err);
-    }
+    const res = await axios.get("http://localhost:5000/api/products");
+    setProducts(res.data);
   };
 
   useEffect(() => {
@@ -68,7 +60,6 @@ function Deliveries() {
     setDeliveryDate("");
     setSupplierID("");
     setItems([{ ProductID: "", Quantity: "", CostPrice: "" }]);
-    setMessage("");
   };
 
   const handleSubmit = async (e) => {
@@ -79,9 +70,25 @@ function Deliveries() {
       return;
     }
 
+    const today = new Date().toISOString().split("T")[0];
+    if (DeliveryDate < today) {
+      setMessage("Delivery date cannot be in the past.");
+      return;
+    }
+
     for (let item of items) {
       if (!item.ProductID || !item.Quantity || !item.CostPrice) {
         setMessage("Please fill in all delivery item fields.");
+        return;
+      }
+
+      if (
+        isNaN(item.Quantity) ||
+        Number(item.Quantity) <= 0 ||
+        isNaN(item.CostPrice) ||
+        Number(item.CostPrice) <= 0
+      ) {
+        setMessage("Quantity and Cost Price must be greater than 0.");
         return;
       }
     }
@@ -93,8 +100,11 @@ function Deliveries() {
         items
       });
 
-      setMessage(res.data.message);
       clearForm();
+      setMessage(res.data.message);
+
+      setTimeout(() => setMessage(""), 3000);
+
       fetchDeliveries();
       fetchProducts();
     } catch (err) {
@@ -103,7 +113,6 @@ function Deliveries() {
     }
   };
 
-  // group rows by DeliveryID for display
   const groupedDeliveries = deliveries.reduce((acc, row) => {
     if (!acc[row.DeliveryID]) {
       acc[row.DeliveryID] = {
@@ -126,235 +135,178 @@ function Deliveries() {
 
   return (
     <div style={{ padding: "30px" }}>
-      <h1 style={{ marginBottom: "20px" }}>Deliveries Management</h1>
+      <h1>Deliveries Management</h1>
 
-      <div style={boxStyle}>
+      {/* FORM */}
+      <div style={cardStyle}>
         <h2>Add Delivery</h2>
 
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: "12px" }}>
-            <label>Delivery Date</label>
-            <input
-              type="date"
-              value={DeliveryDate}
-              onChange={(e) => setDeliveryDate(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
+          <input
+            type="date"
+            value={DeliveryDate}
+            min={new Date().toISOString().split("T")[0]}
+            onChange={(e) => setDeliveryDate(e.target.value)}
+            style={inputStyle}
+          />
 
-          <div style={{ marginBottom: "12px" }}>
-            <label>Supplier</label>
-            <select
-              value={SupplierID}
-              onChange={(e) => setSupplierID(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="">Select Supplier</option>
-              {suppliers.map((supplier) => (
-                <option key={supplier.SupplierID} value={supplier.SupplierID}>
-                  {supplier.SupplierName}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <h3>Delivery Items</h3>
+          <select
+            value={SupplierID}
+            onChange={(e) => setSupplierID(e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">Select Supplier</option>
+            {suppliers.map((s) => (
+              <option key={s.SupplierID} value={s.SupplierID}>
+                {s.SupplierName}
+              </option>
+            ))}
+          </select>
 
           {items.map((item, index) => (
-            <div
-              key={index}
-              style={{
-                border: "1px solid #ddd",
-                padding: "15px",
-                borderRadius: "8px",
-                marginBottom: "12px"
-              }}
-            >
-              <div style={{ marginBottom: "10px" }}>
-                <label>Product</label>
-                <select
-                  value={item.ProductID}
-                  onChange={(e) => handleItemChange(index, "ProductID", e.target.value)}
-                  style={inputStyle}
-                >
-                  <option value="">Select Product</option>
-                  {products.map((product) => (
-                    <option key={product.ProductID} value={product.ProductID}>
-                      {product.ProductName}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div key={index} style={itemBox}>
+              <select
+                value={item.ProductID}
+                onChange={(e) =>
+                  handleItemChange(index, "ProductID", e.target.value)
+                }
+                style={inputStyle}
+              >
+                <option value="">Select Product</option>
+                {products.map((p) => (
+                  <option key={p.ProductID} value={p.ProductID}>
+                    {p.ProductName}
+                  </option>
+                ))}
+              </select>
 
-              <div style={{ marginBottom: "10px" }}>
-                <label>Quantity</label>
-                <input
-                  type="number"
-                  value={item.Quantity}
-                  onChange={(e) => handleItemChange(index, "Quantity", e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
+              <input
+                type="number"
+                min="1"
+                value={item.Quantity}
+                onChange={(e) =>
+                  handleItemChange(index, "Quantity", e.target.value)
+                }
+                style={inputStyle}
+                placeholder="Quantity"
+              />
 
-              <div style={{ marginBottom: "10px" }}>
-                <label>Cost Price</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={item.CostPrice}
-                  onChange={(e) => handleItemChange(index, "CostPrice", e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
+              <input
+                type="number"
+                min="1"
+                value={item.CostPrice}
+                onChange={(e) =>
+                  handleItemChange(index, "CostPrice", e.target.value)
+                }
+                style={inputStyle}
+                placeholder="Cost Price"
+              />
 
               {items.length > 1 && (
                 <button
                   type="button"
                   onClick={() => removeItemRow(index)}
-                  style={removeButtonStyle}
+                  style={redBtn}
                 >
-                  Remove Item
+                  Remove
                 </button>
               )}
             </div>
           ))}
 
-          <button type="button" onClick={addItemRow} style={secondaryButtonStyle}>
+          <button type="button" onClick={addItemRow} style={blueBtn}>
             + Add Another Product
           </button>
 
-          <div style={{ marginTop: "15px" }}>
-            <button type="submit" style={primaryButtonStyle}>
-              Save Delivery
-            </button>
+          <br /><br />
 
-            <button type="button" onClick={clearForm} style={clearButtonStyle}>
-              Clear
-            </button>
-          </div>
+          <button type="submit" style={greenBtn}>
+            Save Delivery
+          </button>
+
+          <button type="button" onClick={clearForm} style={grayBtn}>
+            Clear
+          </button>
         </form>
 
-        {message && <p style={{ marginTop: "15px", fontWeight: "bold" }}>{message}</p>}
+        {message && <p style={{ marginTop: "10px" }}>{message}</p>}
       </div>
 
-      <div style={boxStyle}>
+      {/* RECORDS */}
+      <div style={cardStyle}>
         <h2>Delivery Records</h2>
 
-        {Object.values(groupedDeliveries).length > 0 ? (
-          Object.values(groupedDeliveries).map((delivery) => (
-            <div
-              key={delivery.DeliveryID}
-              style={{
-                border: "1px solid #ddd",
-                borderRadius: "10px",
-                padding: "15px",
-                marginBottom: "15px"
-              }}
-            >
-              <h3>Delivery #{delivery.DeliveryID}</h3>
-              <p><strong>Date:</strong> {delivery.DeliveryDate}</p>
-              <p><strong>Supplier:</strong> {delivery.SupplierName}</p>
+        {Object.values(groupedDeliveries).map((d) => (
+          <div key={d.DeliveryID} style={recordBox}>
+            <h3>Delivery #{d.DeliveryID}</h3>
+            <p>Date: {d.DeliveryDate}</p>
+            <p>Supplier: {d.SupplierName}</p>
 
-              <table style={tableStyle}>
-                <thead>
-                  <tr>
-                    <th style={thStyle}>Product</th>
-                    <th style={thStyle}>Quantity</th>
-                    <th style={thStyle}>Cost Price</th>
-                    <th style={thStyle}>Total Cost</th>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Product</th>
+                  <th style={thStyle}>Qty</th>
+                  <th style={thStyle}>Cost</th>
+                  <th style={thStyle}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.items.map((i, idx) => (
+                  <tr key={idx}>
+                    <td style={tdStyle}>{i.ProductName}</td>
+                    <td style={tdStyle}>{i.Quantity}</td>
+                    <td style={tdStyle}>₱{i.CostPrice}</td>
+                    <td style={tdStyle}>₱{i.TotalCost}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {delivery.items.map((item, idx) => (
-                    <tr key={idx}>
-                      <td style={tdStyle}>{item.ProductName}</td>
-                      <td style={tdStyle}>{item.Quantity}</td>
-                      <td style={tdStyle}>₱{item.CostPrice}</td>
-                      <td style={tdStyle}>₱{item.TotalCost}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ))
-        ) : (
-          <p>No deliveries found.</p>
-        )}
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-const boxStyle = {
-  backgroundColor: "white",
+// ✅ UI FIX ONLY
+const cardStyle = {
+  background: "#f9f9f9",
   padding: "20px",
-  borderRadius: "10px",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+  borderRadius: "12px",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
   marginBottom: "20px"
 };
 
 const inputStyle = {
   width: "100%",
   padding: "10px",
-  marginTop: "5px",
+  marginBottom: "10px",
   borderRadius: "6px",
   border: "1px solid #ccc"
 };
 
-const primaryButtonStyle = {
-  backgroundColor: "green",
-  color: "white",
-  border: "none",
-  padding: "10px 16px",
-  borderRadius: "6px",
-  cursor: "pointer",
-  marginRight: "10px"
-};
-
-const secondaryButtonStyle = {
-  backgroundColor: "#3498db",
-  color: "white",
-  border: "none",
-  padding: "10px 16px",
-  borderRadius: "6px",
-  cursor: "pointer",
-  marginTop: "10px"
-};
-
-const clearButtonStyle = {
-  backgroundColor: "#7f8c8d",
-  color: "white",
-  border: "none",
-  padding: "10px 16px",
-  borderRadius: "6px",
-  cursor: "pointer"
-};
-
-const removeButtonStyle = {
-  backgroundColor: "#e74c3c",
-  color: "white",
-  border: "none",
-  padding: "8px 12px",
-  borderRadius: "6px",
-  cursor: "pointer"
-};
-
-const tableStyle = {
-  width: "100%",
-  borderCollapse: "collapse",
-  marginTop: "10px"
-};
-
-const thStyle = {
+const itemBox = {
   border: "1px solid #ddd",
   padding: "10px",
-  backgroundColor: "#f2f2f2",
-  textAlign: "left"
+  marginBottom: "10px",
+  borderRadius: "6px"
 };
 
-const tdStyle = {
+const recordBox = {
   border: "1px solid #ddd",
-  padding: "10px"
+  padding: "15px",
+  marginBottom: "15px",
+  borderRadius: "8px"
 };
+
+const tableStyle = { width: "100%", borderCollapse: "collapse" };
+const thStyle = { background: "#8B3E2F", color: "#fff", padding: "10px" };
+const tdStyle = { padding: "10px", border: "1px solid #ddd" };
+
+const greenBtn = { background: "#28a745", color: "#fff", padding: "10px", borderRadius: "6px", marginRight: "10px" };
+const grayBtn = { background: "#6c757d", color: "#fff", padding: "10px", borderRadius: "6px" };
+const blueBtn = { background: "#007bff", color: "#fff", padding: "10px", borderRadius: "6px", marginBottom: "10px" };
+const redBtn = { background: "#dc3545", color: "#fff", padding: "6px 10px", borderRadius: "6px" };
 
 export default Deliveries;

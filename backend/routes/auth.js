@@ -38,10 +38,18 @@ router.post("/login", (req, res) => {
     }
 
     // SAVE LOGIN LOG
-    db.query(
-      "INSERT INTO activity_logs (UserID) VALUES (?)",
-      [user.UserID]
-    );
+   // SAVE LOGIN LOG (SAFE)
+db.query(
+  "INSERT INTO activity_logs (UserID) VALUES (?)",
+  [user.UserID],
+  (logErr) => {
+    if (logErr) {
+      console.log("LOG INSERT ERROR:", logErr);
+    } else {
+      console.log("LOGIN LOG SAVED");
+    }
+  }
+);
 
     const token = jwt.sign(
       {

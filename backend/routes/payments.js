@@ -73,12 +73,56 @@ router.post("/", (req, res) => {
     return res.status(400).json({ message: "Payment date is required." });
   }
 
-  if (AmountPaid === "" || AmountPaid === null || AmountPaid === undefined) {
-    return res.status(400).json({ message: "Amount paid is required." });
+  // 🔥 STRONG DATE VALIDATION
+  const today = new Date();
+  const selectedDate = new Date(PaymentDate);
+
+  today.setHours(0, 0, 0, 0);
+  selectedDate.setHours(0, 0, 0, 0);
+
+  if (selectedDate < today) {
+    return res.status(400).json({
+      message: "Payment date cannot be in the past."
+    });
+  }
+
+  if (
+    AmountPaid === "" ||
+    AmountPaid === null ||
+    isNaN(AmountPaid) ||
+    Number(AmountPaid) <= 0
+  ) {
+    return res.status(400).json({
+      message: "Amount must be greater than 0."
+    });
   }
 
   if (!PaymentMethod) {
     return res.status(400).json({ message: "Payment method is required." });
+  }
+
+  if (PaymentMethod === "Cash") {
+    if (
+      CashReceived === "" ||
+      isNaN(CashReceived) ||
+      Number(CashReceived) <= 0
+    ) {
+      return res.status(400).json({
+        message: "Cash received must be greater than 0."
+      });
+    }
+
+    if (Number(CashReceived) < Number(AmountPaid)) {
+      return res.status(400).json({
+        message: "Cash received cannot be less than amount paid."
+      });
+    }
+  }
+
+  if (PaymentMethod === "GCash" && !ReferenceNumber) {
+    return res.status(400).json({
+      message: "Reference number is required for GCash."
+    });
   }
 
   const sql = `
@@ -98,7 +142,7 @@ router.post("/", (req, res) => {
       CashReceived || null,
       ChangeAmount || 0
     ],
-    (err, result) => {
+    (err) => {
       if (err) {
         if (err.code === "ER_DUP_ENTRY") {
           return res.status(400).json({
@@ -106,7 +150,6 @@ router.post("/", (req, res) => {
           });
         }
 
-        console.error("Insert payment error:", err);
         return res.status(500).json({ message: "Database error." });
       }
 
@@ -117,13 +160,10 @@ router.post("/", (req, res) => {
 
 // DELETE payment
 router.delete("/:id", (req, res) => {
-  const { id } = req.params;
-
   const sql = "DELETE FROM payments WHERE PaymentID = ?";
 
-  db.query(sql, [id], (err, result) => {
+  db.query(sql, [req.params.id], (err) => {
     if (err) {
-      console.error("Delete payment error:", err);
       return res.status(500).json({ message: "Database error." });
     }
 

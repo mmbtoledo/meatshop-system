@@ -35,8 +35,37 @@ router.get("/", (req, res) => {
 router.post("/", (req, res) => {
   const { DeliveryDate, SupplierID, items } = req.body;
 
+  // 🔥 REQUIRED
   if (!DeliveryDate || !SupplierID || !items || items.length === 0) {
     return res.status(400).json({ error: "Delivery date, supplier, and items are required" });
+  }
+
+  // 🔥 DATE VALIDATION (NO PAST)
+  const today = new Date().toISOString().split("T")[0];
+  if (DeliveryDate < today) {
+    return res.status(400).json({
+      error: "Delivery date cannot be in the past"
+    });
+  }
+
+  // 🔥 ITEMS VALIDATION
+  for (let item of items) {
+    if (!item.ProductID || !item.Quantity || !item.CostPrice) {
+      return res.status(400).json({
+        error: "All delivery item fields are required"
+      });
+    }
+
+    if (
+      isNaN(item.Quantity) ||
+      Number(item.Quantity) <= 0 ||
+      isNaN(item.CostPrice) ||
+      Number(item.CostPrice) <= 0
+    ) {
+      return res.status(400).json({
+        error: "Quantity and Cost Price must be numbers greater than 0"
+      });
+    }
   }
 
   const insertDeliverySql = `
@@ -89,7 +118,7 @@ router.post("/", (req, res) => {
             completed++;
 
             if (completed === items.length && !hasError) {
-              res.json({ message: "Delivery saved successfully with multiple products" });
+              res.json({ message: "Delivery saved successfully" });
             }
           });
         }

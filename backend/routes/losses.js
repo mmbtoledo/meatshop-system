@@ -1,38 +1,25 @@
-const express = require("express");
-const router = express.Router();
-const db = require("../db");
-
-// GET LOSSES
-router.get("/", (req, res) => {
-  const sql = `
-    SELECT 
-      l.LossID,
-      l.ProductID,
-      p.ProductName,
-      l.Quantity,
-      l.LossType,
-      l.DateRecorded
-    FROM losses l
-    JOIN products p ON l.ProductID = p.ProductID
-    ORDER BY l.LossID DESC
-  `;
-
-  db.query(sql, (err, result) => {
-    if (err) {
-      console.log("GET losses error:", err);
-      return res.status(500).json({ error: "Failed to fetch losses" });
-    }
-
-    res.json(result);
-  });
-});
-
-// ADD LOSS AND REDUCE STOCK
 router.post("/", (req, res) => {
   const { ProductID, Quantity, LossType, DateRecorded } = req.body;
 
-  if (!ProductID || !Quantity || !LossType || !DateRecorded) {
+  // REQUIRED
+  if (!ProductID || Quantity === undefined || Quantity === "" || !LossType || !DateRecorded) {
     return res.status(400).json({ error: "All fields are required" });
+  }
+
+  const qty = parseFloat(Quantity);
+
+  // VALID NUMBER
+  if (isNaN(qty)) {
+    return res.status(400).json({
+      error: "Quantity must be a valid number"
+    });
+  }
+
+  // BLOCK ZERO / NEGATIVE
+  if (qty <= 0) {
+    return res.status(400).json({
+      error: "Quantity must be greater than 0"
+    });
   }
 
   const checkStockSql = `
@@ -51,8 +38,10 @@ router.post("/", (req, res) => {
 
     const currentStock = stockResult[0].StockQty;
 
-    if (Number(Quantity) > Number(currentStock)) {
-      return res.status(400).json({ error: "Insufficient stock for loss recording" });
+    if (qty > Number(currentStock)) {
+      return res.status(400).json({
+        error: "Insufficient stock for loss recording"
+      });
     }
 
     const lossSql = `
@@ -60,7 +49,7 @@ router.post("/", (req, res) => {
       VALUES (?, ?, ?, ?)
     `;
 
-    db.query(lossSql, [ProductID, Quantity, LossType, DateRecorded], (err) => {
+    db.query(lossSql, [ProductID, qty, LossType, DateRecorded], (err) => {
       if (err) {
         console.log("POST loss error:", err);
         return res.status(500).json({ error: "Failed to record loss" });
@@ -72,10 +61,12 @@ router.post("/", (req, res) => {
         WHERE ProductID = ?
       `;
 
-      db.query(updateStockSql, [Quantity, ProductID], (updateErr) => {
+      db.query(updateStockSql, [qty, ProductID], (updateErr) => {
         if (updateErr) {
           console.log("Loss stock update error:", updateErr);
-          return res.status(500).json({ error: "Loss recorded but failed to update stock" });
+          return res.status(500).json({
+            error: "Loss recorded but failed to update stock"
+          });
         }
 
         res.json({ message: "Loss recorded successfully" });
@@ -83,5 +74,3 @@ router.post("/", (req, res) => {
     });
   });
 });
-
-module.exports = router;

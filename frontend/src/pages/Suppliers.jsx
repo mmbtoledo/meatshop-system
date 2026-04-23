@@ -37,31 +37,43 @@ function Suppliers() {
       return;
     }
 
+    if (!/^\d{11}$/.test(ContactNumber)) {
+      setMessage("Contact number must be exactly 11 digits.");
+      return;
+    }
+
     try {
+      let res;
+
       if (editId === null) {
-        const res = await axios.post("http://localhost:5000/api/suppliers", {
+        res = await axios.post("http://localhost:5000/api/suppliers", {
           SupplierName,
           ContactNumber
         });
-        setMessage(res.data.message);
       } else {
-        const res = await axios.put(`http://localhost:5000/api/suppliers/${editId}`, {
+        res = await axios.put(`http://localhost:5000/api/suppliers/${editId}`, {
           SupplierName,
           ContactNumber
         });
-        setMessage(res.data.message);
       }
 
       clearForm();
+      setMessage(res.data.message);
+
+      setTimeout(() => {
+        setMessage("");
+      }, 3000);
+
       fetchSuppliers();
     } catch (err) {
       console.error("Error saving supplier:", err);
-      setMessage("Failed to save supplier.");
+      setMessage(err.response?.data?.error || "Failed to save supplier.");
     }
   };
 
   const handleEdit = (supplier) => {
-    setEditId(supplier.SupplierID);
+    // 🔥 FIXED (use real ID)
+    setEditId(supplier.RealSupplierID);
     setSupplierName(supplier.SupplierName || "");
     setContactNumber(supplier.ContactNumber || "");
     setMessage(`Now editing: ${supplier.SupplierName}`);
@@ -73,16 +85,15 @@ function Suppliers() {
 
     try {
       const res = await axios.delete(`http://localhost:5000/api/suppliers/${id}`);
+
       setMessage(res.data.message);
 
-      if (editId === id) {
-        clearForm();
-      }
-
+      // 🔥 refresh list
       fetchSuppliers();
+
     } catch (err) {
       console.error("Error deleting supplier:", err);
-      setMessage("Failed to delete supplier.");
+      setMessage(err.response?.data?.error || "Failed to delete supplier.");
     }
   };
 
@@ -124,8 +135,12 @@ function Suppliers() {
             <br />
             <input
               type="text"
+              maxLength="11"
               value={ContactNumber}
-              onChange={(e) => setContactNumber(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, "");
+                setContactNumber(value);
+              }}
               style={{
                 width: "100%",
                 padding: "10px",
@@ -201,7 +216,8 @@ function Suppliers() {
           <tbody>
             {suppliers.length > 0 ? (
               suppliers.map((supplier) => (
-                <tr key={supplier.SupplierID}>
+                <tr key={supplier.RealSupplierID}>
+                  {/* ✅ DISPLAY ID ONLY */}
                   <td style={tableCellStyle}>{supplier.SupplierID}</td>
                   <td style={tableCellStyle}>{supplier.SupplierName}</td>
                   <td style={tableCellStyle}>{supplier.ContactNumber}</td>
@@ -224,7 +240,7 @@ function Suppliers() {
 
                     <button
                       type="button"
-                      onClick={() => handleDelete(supplier.SupplierID)}
+                      onClick={() => handleDelete(supplier.RealSupplierID)}
                       style={{
                         backgroundColor: "#e74c3c",
                         color: "white",

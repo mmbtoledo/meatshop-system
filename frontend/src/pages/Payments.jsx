@@ -79,74 +79,80 @@ const Payments = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // 🔥 ONLY REPLACE handleSubmit FUNCTION
 
-    if (!SalesID) {
-      alert("Please select a sale.");
-      return;
+const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  if (!SalesID) return alert("Please select a sale.");
+  if (!PaymentDate) return alert("Payment date is required.");
+
+  // 🔥 STRONG DATE VALIDATION
+  const today = new Date();
+  const selectedDate = new Date(PaymentDate);
+
+  today.setHours(0, 0, 0, 0);
+  selectedDate.setHours(0, 0, 0, 0);
+
+  if (selectedDate < today) {
+    return alert("Payment date cannot be in the past.");
+  }
+
+  if (
+    AmountPaid === "" ||
+    isNaN(AmountPaid) ||
+    Number(AmountPaid) <= 0
+  ) {
+    return alert("Amount must be greater than 0.");
+  }
+
+  if (!PaymentMethod) return alert("Payment method is required.");
+
+  if (PaymentMethod === "GCash" && !ReferenceNumber.trim()) {
+    return alert("Reference number is required.");
+  }
+
+  if (PaymentMethod === "Cash") {
+    if (
+      CashReceived === "" ||
+      isNaN(CashReceived) ||
+      Number(CashReceived) <= 0
+    ) {
+      return alert("Cash received must be greater than 0.");
     }
 
-    if (!PaymentDate) {
-      alert("Payment date is required.");
-      return;
+    if (Number(CashReceived) < Number(AmountPaid)) {
+      return alert("Cash received must not be less than amount paid.");
     }
+  }
 
-    if (!AmountPaid) {
-      alert("Amount paid is required.");
-      return;
-    }
+  try {
+    const res = await axios.post("http://localhost:5000/api/payments", {
+      SalesID,
+      PaymentDate,
+      AmountPaid,
+      PaymentMethod,
+      ReferenceNumber: PaymentMethod === "GCash" ? ReferenceNumber : null,
+      CashReceived: PaymentMethod === "Cash" ? CashReceived : null,
+      ChangeAmount: PaymentMethod === "Cash" ? ChangeAmount : 0,
+    });
 
-    if (!PaymentMethod) {
-      alert("Payment method is required.");
-      return;
-    }
+    alert(res.data.message);
 
-    if (PaymentMethod === "GCash" && !ReferenceNumber.trim()) {
-      alert("Reference number is required for GCash.");
-      return;
-    }
+    setSalesID("");
+    setPaymentDate("");
+    setAmountPaid("");
+    setPaymentMethod("Cash");
+    setReferenceNumber("");
+    setCashReceived("");
+    setChangeAmount("");
 
-    if (PaymentMethod === "Cash") {
-      if (CashReceived === "") {
-        alert("Cash received is required for cash payments.");
-        return;
-      }
-
-      if (parseFloat(CashReceived) < parseFloat(AmountPaid)) {
-        alert("Cash received must not be less than amount paid.");
-        return;
-      }
-    }
-
-    try {
-      await axios.post("http://localhost:5000/api/payments", {
-        SalesID,
-        PaymentDate,
-        AmountPaid,
-        PaymentMethod,
-        ReferenceNumber: PaymentMethod === "GCash" ? ReferenceNumber : null,
-        CashReceived: PaymentMethod === "Cash" ? CashReceived : null,
-        ChangeAmount: PaymentMethod === "Cash" ? ChangeAmount : 0,
-      });
-
-      alert("Payment saved successfully.");
-
-      setSalesID("");
-      setPaymentDate("");
-      setAmountPaid("");
-      setPaymentMethod("Cash");
-      setReferenceNumber("");
-      setCashReceived("");
-      setChangeAmount("");
-
-      fetchPayments();
-      fetchUnpaidSales();
-    } catch (error) {
-      alert(error.response?.data?.message || "Something went wrong.");
-    }
-  };
-
+    fetchPayments();
+    fetchUnpaidSales();
+  } catch (error) {
+    alert(error.response?.data?.message || "Something went wrong.");
+  }
+};
   return (
     <div style={{ padding: "20px" }}>
       <h1>Payments</h1>
@@ -172,6 +178,7 @@ const Payments = () => {
             <input
               type="date"
               value={PaymentDate}
+              min={new Date().toISOString().split("T")[0]}
               onChange={(e) => setPaymentDate(e.target.value)}
               style={inputStyle}
             />
@@ -182,9 +189,7 @@ const Payments = () => {
             <input
               type="number"
               value={AmountPaid}
-              onChange={(e) => setAmountPaid(e.target.value)}
               style={inputStyle}
-              placeholder="Amount paid"
               readOnly
             />
           </div>
@@ -209,7 +214,6 @@ const Payments = () => {
                 value={ReferenceNumber}
                 onChange={(e) => setReferenceNumber(e.target.value)}
                 style={inputStyle}
-                placeholder="Enter reference number"
               />
             </div>
           )}
@@ -220,10 +224,11 @@ const Payments = () => {
                 <label>Cash Received</label>
                 <input
                   type="number"
+                  min="1"
+                  step="0.01"
                   value={CashReceived}
                   onChange={handleCashReceivedChange}
                   style={inputStyle}
-                  placeholder="Enter cash received"
                 />
               </div>
 

@@ -28,10 +28,28 @@ function Losses() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    const qty = parseFloat(Quantity);
+
+    // 🔥 VALIDATION
+    if (!Quantity) {
+      setMessage("Quantity is required");
+      return;
+    }
+
+    if (isNaN(qty)) {
+      setMessage("Quantity must be a valid number");
+      return;
+    }
+
+    if (qty <= 0) {
+      setMessage("Quantity must be greater than 0");
+      return;
+    }
+
     try {
       const res = await axios.post("http://localhost:5000/api/losses", {
         ProductID,
-        Quantity,
+        Quantity: qty,
         LossType,
         DateRecorded
       });
@@ -58,7 +76,11 @@ function Losses() {
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: "12px" }}>
             <label>Product</label>
-            <select value={ProductID} onChange={(e) => setProductID(e.target.value)} style={inputStyle}>
+            <select
+              value={ProductID}
+              onChange={(e) => setProductID(e.target.value)}
+              style={inputStyle}
+            >
               <option value="">Select Product</option>
               {products.map((product) => (
                 <option key={product.ProductID} value={product.ProductID}>
@@ -70,12 +92,28 @@ function Losses() {
 
           <div style={{ marginBottom: "12px" }}>
             <label>Quantity</label>
-            <input type="number" value={Quantity} onChange={(e) => setQuantity(e.target.value)} style={inputStyle} />
+            <input
+              type="text"
+              value={Quantity}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9.]/g, "");
+
+                // prevent multiple decimals
+                if ((value.match(/\./g) || []).length > 1) return;
+
+                setQuantity(value);
+              }}
+              style={inputStyle}
+            />
           </div>
 
           <div style={{ marginBottom: "12px" }}>
             <label>Loss Type</label>
-            <select value={LossType} onChange={(e) => setLossType(e.target.value)} style={inputStyle}>
+            <select
+              value={LossType}
+              onChange={(e) => setLossType(e.target.value)}
+              style={inputStyle}
+            >
               <option value="Spoilage">Spoilage</option>
               <option value="Expired">Expired</option>
             </select>
@@ -83,13 +121,24 @@ function Losses() {
 
           <div style={{ marginBottom: "12px" }}>
             <label>Date Recorded</label>
-            <input type="date" value={DateRecorded} onChange={(e) => setDateRecorded(e.target.value)} style={inputStyle} />
+            <input
+              type="date"
+              value={DateRecorded}
+              onChange={(e) => setDateRecorded(e.target.value)}
+              style={inputStyle}
+            />
           </div>
 
-          <button type="submit" style={buttonStyle}>Save Loss</button>
+          <button type="submit" style={buttonStyle}>
+            Save Loss
+          </button>
         </form>
 
-        {message && <p style={{ marginTop: "10px", fontWeight: "bold" }}>{message}</p>}
+        {message && (
+          <p style={{ marginTop: "10px", fontWeight: "bold" }}>
+            {message}
+          </p>
+        )}
       </div>
 
       <div style={boxStyle}>
@@ -121,6 +170,7 @@ function Losses() {
   );
 }
 
+// STYLES (UNCHANGED)
 const boxStyle = {
   backgroundColor: "white",
   padding: "20px",

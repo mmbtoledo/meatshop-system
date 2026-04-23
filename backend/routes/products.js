@@ -6,11 +6,20 @@ const db = require("../db");
 // GET ALL PRODUCTS
 // =======================
 router.get("/", (req, res) => {
+  console.log("✅ UPDATED PRODUCTS ROUTE RUNNING");
+
   const sql = `
-    SELECT p.ProductID, p.ProductName, p.CurrentPrice, p.StockQty, c.CategoryName, p.CategoryID
-    FROM products p
-    LEFT JOIN categories c ON p.CategoryID = c.CategoryID
-    ORDER BY p.ProductID DESC
+  SELECT 
+    ROW_NUMBER() OVER (ORDER BY p.ProductID DESC) AS ProductID,
+    p.ProductID AS RealProductID,
+    p.ProductName,
+    p.CurrentPrice,
+    p.StockQty,
+    c.CategoryName,
+    p.CategoryID
+  FROM products p
+  LEFT JOIN categories c ON p.CategoryID = c.CategoryID
+  ORDER BY p.ProductID DESC
   `;
 
   db.query(sql, (err, results) => {
@@ -25,8 +34,21 @@ router.get("/", (req, res) => {
 router.post("/", (req, res) => {
   let { ProductName, CurrentPrice, StockQty, CategoryID } = req.body;
 
+  // 🔥 REQUIRED FIELDS CHECK
   if (!ProductName || !CurrentPrice || !StockQty || !CategoryID) {
     return res.status(400).json({ message: "All fields are required." });
+  }
+
+  // 🔥 NEW VALIDATION (CRITICAL)
+  if (
+    isNaN(CurrentPrice) ||
+    Number(CurrentPrice) <= 0 ||
+    isNaN(StockQty) ||
+    Number(StockQty) <= 0
+  ) {
+    return res.status(400).json({
+      message: "Invalid input. Price and Stock must be numbers greater than 0.",
+    });
   }
 
   // normalize input 🔥
@@ -58,6 +80,18 @@ router.put("/:id", (req, res) => {
   const { id } = req.params;
   let { ProductName, CurrentPrice, StockQty, CategoryID } = req.body;
 
+  // 🔥 OPTIONAL: VALIDATION FOR UPDATE TOO (recommended)
+  if (
+    isNaN(CurrentPrice) ||
+    Number(CurrentPrice) <= 0 ||
+    isNaN(StockQty) ||
+    Number(StockQty) <= 0
+  ) {
+    return res.status(400).json({
+      message: "Invalid input. Price and Stock must be numbers greater than 0.",
+    });
+  }
+
   ProductName = ProductName.trim().toLowerCase();
 
   const sql = `
@@ -88,6 +122,9 @@ router.delete("/:id", (req, res) => {
 
 module.exports = router;
 
+// =======================
+// (IGNORE THIS - FRONTEND FUNCTION)
+// =======================
 function addProduct() {
   const ProductName = document.getElementById("productName").value;
   const CurrentPrice = document.getElementById("price").value;
@@ -108,7 +145,7 @@ function addProduct() {
   })
     .then((res) => res.json())
     .then((data) => {
-      alert(data.message); // ✅ USE BACKEND MESSAGE
+      alert(data.message);
       loadProducts();
     })
     .catch(() => {
